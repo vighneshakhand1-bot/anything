@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using Fluensia.Views;
 using ImGuiNET;
+using Veldrid;
 
 namespace Fluensia.Core
 {
