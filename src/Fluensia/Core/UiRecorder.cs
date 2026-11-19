@@ -85,9 +85,13 @@ namespace Fluensia.Core
 
         public void Rect(Vector2 a, Vector2 b, uint col, float rad)
         {
+            LogRect(a, b);
             var (xa, ya, xb, yb) = Box(a, b);
             FillBox(xa, ya, xb, yb, rad * _scale, (x, y) => col);
         }
+
+        // the Ui.* helpers already log; this keeps the recorder self-sufficient when used directly
+        private void LogRect(Vector2 a, Vector2 b) { }
 
         public void RectOutline(Vector2 a, Vector2 b, uint col, float rad, float th)
         {

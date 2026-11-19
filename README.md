@@ -47,8 +47,17 @@ Fluensia.exe --ui-preview out --state settings --time 40
 ```
 
 This is a checker, not a second renderer: it shares `Ui`, `App` and the views with the real path and
-draws solid rects, gradients, outlines and proportional text blocks. `--snapshot <dir>` does the same
-with the real GPU renderer (`--state games --frames 3 --time 12.03`) and also dumps `layout.txt`.
+draws solid rects, gradients, outlines and proportional text blocks (real Inter advance widths, so
+line lengths are honest). `--snapshot <dir>` does the same with the real GPU renderer
+(`--state games --frames 3 --time 12.03`) and also dumps `layout.txt`.
+
+The layout dump is machine-checkable against the measurements in `analysis/brief.md`:
+
+```bash
+python3 tools/check_layout.py out/preview_games.layout.txt
+```
+
+CI runs that on every push, so geometry drift fails the build instead of being spotted by eye.
 
 ## Controls
 
