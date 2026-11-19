@@ -28,6 +28,28 @@ dotnet publish src/Fluensia/Fluensia.csproj -c Release -r win-x64 --self-contain
 The GitHub Actions workflow (`.github/workflows/build.yml`) builds both variants, uploads the
 zips as artifacts on every push and attaches them to a release for tags `v*`.
 
+## Requirements
+
+* Windows 10/11 x64, .NET 8 SDK (or just the .NET 8 Desktop Runtime for the `--portable`-less variant)
+* a GPU with OpenGL 3.3+ or Vulkan — Veldrid picks the backend automatically
+* no extra native DLLs: `cimgui` ships inside the ImGui.NET package and is copied by the SDK
+
+## Layout verification without a GPU
+
+The app can mirror its whole widget tree into a software canvas, so a build machine (or CI) can
+check the geometry without a display:
+
+```bash
+Fluensia.exe --ui-preview out --state games     # writes preview_games.png + .txt (all drawn strings)
+                                                # + .layout.txt (every widget in design units)
+Fluensia.exe --ui-preview out --state login
+Fluensia.exe --ui-preview out --state settings --time 40
+```
+
+This is a checker, not a second renderer: it shares `Ui`, `App` and the views with the real path and
+draws solid rects, gradients, outlines and proportional text blocks. `--snapshot <dir>` does the same
+with the real GPU renderer (`--state games --frames 3 --time 12.03`) and also dumps `layout.txt`.
+
 ## Controls
 
 | key / action | effect |
@@ -48,3 +70,5 @@ zips as artifacts on every push and attaches them to a release for tags `v*`.
 * Art is bundled as `.flut` (palette + deflate index plane, ~2.1 MB for all 10 bitmaps) and
   decoded in-process — no ImageSharp/StbImageSharp dependency.
 * All artwork is generated for this rebuild; the original game covers are copyrighted.
+* Measured geometry lives in `analysis/brief.md` (**Measurement pass 2** supersedes the first table)
+  and in `analysis/timeline.json` → `layout_revised`.

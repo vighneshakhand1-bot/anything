@@ -2,7 +2,8 @@
 REM ============================================================================
 REM  Fluensia - manual build script (Windows)
 REM  Requirements: .NET 8 SDK (https://dotnet.microsoft.com/download)
-REM  Usage:   build.bat                 -> framework-dependent, Release
+REM  Usage:   build.bat                 -> framework-dependent, Release + layout preview
+REM           (nothing is shipped prebuilt; you build locally)
 REM           build.bat --portable      -> single self-contained .exe (bigger, no SDK needed)
 REM           build.bat --debug         -> Debug build, no publish
 REM ============================================================================
@@ -23,7 +24,12 @@ echo [1/2] Restoring packages...
 dotnet restore Fluensia.csproj || goto fail
 
 echo [2/2] Publishing release build...
+REM RollForward=LatestMajor in the csproj means a newer .NET runtime also works.
 dotnet publish Fluensia.csproj -c Release -r win-x64 --self-contained false -o "..\..\dist\Fluensia" || goto fail
+
+echo [3/3] Rendering a GPU-less layout preview for a quick sanity check...
+"..\..\dist\Fluensia\Fluensia.exe" --ui-preview "..\..\dist\preview" --state games >nul 2>nul
+if exist "..\..\dist\preview\preview_games.png" echo   preview: dist\preview\preview_games.png
 
 echo.
 echo Done.  Run:  dist\Fluensia\Fluensia.exe

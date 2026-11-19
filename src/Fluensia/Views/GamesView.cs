@@ -92,12 +92,14 @@ namespace Fluensia.Views
         {
             if (Cards.Count == 0) Build();
 
-            float x0 = content.Left + 8f;              // 145
-            float cardW = 68.5f;
-            float gap = 9.5f;
-            float top = content.Top + 26f;             // 86
-            float cardH = 132f;                        // 86..218
-            float footerH = 72f;                       // 146..218
+            // measured on the 11.50 s frame (÷2): cards x 146..446.5, y 88..221.5, footer 156.5..221.5
+            float x0 = 146f;
+            float cardW = 66.75f;
+            float gap = 6.5f;
+            float top = 88f;
+            float cardH = 133.5f;
+            float footerH = 65f;                       // 156.5..221.5
+            _ = footerH;
 
             _app.DrawTitleRow(dl, content, "Игры");
             dl.PushClipRect(_app.P(content.Left, content.Top), _app.P(content.Right, content.Bottom), true);
@@ -110,26 +112,8 @@ namespace Fluensia.Views
             }
 
             // footer strip (the pale "grid" band the cards sit on)
-            DrawFooterStrip(dl, new RectF(x0, top + cardH - 17f, x0 + 4 * cardW + 3 * gap, top + cardH));
-
-            DrawDetail(dl, Cards[Selected], new RectF(x0, 215f, x0 + 4 * cardW + 3 * gap, 292f));
-            dl.PopClipRect();
-        }
-
-        private void DrawFooterStrip(ImDrawListPtr dl, RectF r)
-        {
-            var a = _app.P(r.Left, r.Top); var b = _app.P(r.Right, r.Bottom);
-            dl.PushClipRect(a, b, true);
-            // the reference has a light cream checkerboard band behind the card feet
-            for (float y = r.Top; y < r.Bottom; y += 4f)
-            {
-                for (float x = r.Left; x < r.Right; x += 4f)
-                {
-                    bool on = ((int)((x - r.Left) / 4f) + (int)((y - r.Top) / 4f)) % 2 == 0;
-                    dl.AddRectFilled(_app.P(x, y), _app.P(x + 4, y + 4),
-                        Palette.U32(new Vector4(1f, 0.97f, 0.82f, on ? 0.22f : 0.06f)));
-                }
-            }
+            // measured: detail panel 147..449 x (aligned with the card row), 212.5..296 y
+            DrawDetail(dl, Cards[Selected], new RectF(x0 + 1f, 212.5f, x0 + 4 * cardW + 3 * gap - 1f, 296f));
             dl.PopClipRect();
         }
 
@@ -152,7 +136,7 @@ namespace Fluensia.Views
 
             // ---- art
             var art = c.Art;
-            var artH = (_app.S(r.Height - 72f)).Y;
+            var artH = (_app.S(r.Height - 65f)).Y;
             var artB = new Vector2(b.X, a.Y + artH);
             if (art.Valid)
             {
@@ -178,7 +162,7 @@ namespace Fluensia.Views
 
             // ---- footer (black, rounded bottom corners only)
             var footA = new Vector2(a.X, a.Y + artH);
-            Ui.RectC(dl, footA, b, Palette.CardFoot2, 0, 0, rad, rad);
+            Ui.VGradRounded(dl, new Vector2(footA.X, footA.Y - _app.Sc(1.5f)), b, Palette.CardFoot, Palette.CardFoot2, rad);
 
             // ---- date tag (rounded pill hanging from the top edge)
             var tag = c.Tag;
@@ -191,14 +175,14 @@ namespace Fluensia.Views
             Ui.TextC(dl, _app.F.Micro, (tagA + tagB) * 0.5f, tag, Palette.A(Palette.Text, 0.92f));
 
             // ---- stats row: version | short pill | genre
-            float sy = footA.Y + _app.Sc(2.5f);
-            float rowMidY = sy + _app.Sc(5f);
+            float sy = footA.Y + _app.Sc(1.5f);
+            float rowMidY = sy + _app.Sc(4f);
             Ui.Text(dl, _app.F.Micro, new Vector2(a.X + _app.Sc(4f), rowMidY - _app.Sc(3.5f)), c.Version,
                 Palette.A(Palette.Text, 0.72f));
 
-            var pillSize = _app.F.Small.Measure(c.Short);
-            float pw = pillSize.X + _app.Sc(9f);
-            float ph = _app.Sc(10.5f);
+            var pillSize = _app.F.Micro.Measure(c.Short);
+            float pw = pillSize.X + _app.Sc(8f);
+            float ph = _app.Sc(8f);
             var pa = new Vector2((a.X + b.X) * 0.5f - pw * 0.5f, rowMidY - ph * 0.5f);
             var pb = new Vector2(pa.X + pw, pa.Y + ph);
             bool pillHot = Ui.Over(pa, pb);
@@ -209,29 +193,29 @@ namespace Fluensia.Views
                 ? Palette.Mix(Palette.Yellow, new Vector4(1f, 0.92f, 0.55f, 1f), pillHov * 0.6f)
                 : Palette.Mix(Palette.ChipDark, Palette.PillHover, pillHov);
             Ui.Rect(dl, pa, pb, Palette.U32(pillBg, 0.96f), _app.Sc(6f));
-            Ui.TextC(dl, _app.F.Small, (pa + pb) * 0.5f, c.Short,
+            Ui.TextC(dl, _app.F.Micro, (pa + pb) * 0.5f, c.Short,
                 yellow ? Palette.YellowInk : Palette.A(Palette.Text, 0.85f));
 
             Ui.TextR(dl, _app.F.Micro, new Vector2(b.X - _app.Sc(4f), rowMidY - _app.Sc(3f)), c.Genre,
                 Palette.A(Palette.Text, 0.66f));
 
             // ---- title + status
-            Ui.TextC(dl, _app.F.H3, new Vector2((a.X + b.X) * 0.5f, footA.Y + _app.Sc(20f)), c.Title,
-                Palette.A(Palette.Text, 0.96f));
-            Ui.TextC(dl, _app.F.Micro, new Vector2((a.X + b.X) * 0.5f, footA.Y + _app.Sc(29f)), c.Status,
-                Palette.A(Palette.TextMute, 0.72f));
+            Ui.TextCFit(dl, _app.F.H3, new Vector2((a.X + b.X) * 0.5f, footA.Y + _app.Sc(18.5f)), c.Title,
+                b.X - a.X - _app.Sc(4f), Palette.A(Palette.Text, 0.96f));
+            Ui.TextCFit(dl, _app.F.Micro, new Vector2((a.X + b.X) * 0.5f, footA.Y + _app.Sc(26.5f)), c.Status,
+                b.X - a.X - _app.Sc(4f), Palette.A(Palette.TextMute, 0.72f));
 
             // ---- scope chips row
-            float chH = _app.Sc(9.5f);
-            float cy = b.Y - _app.Sc(5f) - chH * 0.5f;
+            float chH = _app.Sc(8.5f);
+            float cy = b.Y - _app.Sc(4.5f) - chH * 0.5f;
             if (c.Scopes.Length == 2)
             {
-                DrawScopeChip(dl, "Internal", new Vector2(a.X + _app.Sc(3f), cy), _app.Sc(24f), chH, idx);
-                DrawScopeChip(dl, "External", new Vector2(a.X + _app.Sc(29f), cy), _app.Sc(24f), chH, idx);
+                DrawScopeChip(dl, "Internal", new Vector2(a.X + _app.Sc(2.5f), cy), _app.Sc(23f), chH, idx);
+                DrawScopeChip(dl, "External", new Vector2(a.X + _app.Sc(27f), cy), _app.Sc(23f), chH, idx);
             }
             else
             {
-                DrawScopeChip(dl, "External", new Vector2((a.X + b.X) * 0.5f - _app.Sc(12f), cy), _app.Sc(24f), chH, idx);
+                DrawScopeChip(dl, "External", new Vector2((a.X + b.X) * 0.5f - _app.Sc(11.5f), cy), _app.Sc(23f), chH, idx);
             }
 
             // selected ring: 1px warm outline that fades in (the active card reads slightly warmer)
@@ -263,7 +247,7 @@ namespace Fluensia.Views
                 : new Vector4(0.16f, 0.16f, 0.17f, 0.95f);
             bg = Palette.Mix(bg, new Vector4(0.38f, 0.38f, 0.42f, 0.95f), hov);
             Ui.Rect(dl, a, b, Palette.U32(bg), h * 0.5f);
-            Ui.TextC(dl, _app.F.Micro, (a + b) * 0.5f, label,
+            Ui.TextCFit(dl, _app.F.Micro, (a + b) * 0.5f, label, b.X - a.X - _app.Sc(3f),
                 Palette.A(Palette.Text, active ? 0.92f : 0.55f));
             if (Ui.Button(label + "#" + cardIdx, a, b)) Scope = label == "Internal" ? 0 : 1;
         }
@@ -276,12 +260,13 @@ namespace Fluensia.Views
             var a = _app.P(r.Left, r.Top);
             var b = _app.P(r.Right, r.Bottom);
             float rad = _app.Sc(7f);
-            // measured inner plate: inset 3.5 left/right, 13.5 top, 2.5 bottom
-            var inner = new RectF(r.Left + 3.5f, r.Top + 13.5f, r.Right - 3.5f, r.Bottom - 2.5f);
+            // measured inner plate (design): 149..447 x, 224..289.5 y (panel 147..449 / 212.5..296)
+            var inner = new RectF(r.Left + 2.5f, r.Top + 11.5f, r.Right - 2.5f, r.Bottom - 6.5f);
 
             // outer plate: olive/amber gradient glass (sampled #8E845D top-left -> #2F221A bottom-right)
-            var tl = new Vector4(0.60f, 0.56f, 0.40f, 0.55f);
-            var br = new Vector4(0.56f, 0.52f, 0.40f, 0.20f);
+            // sampled: header band #92855B, body melts into the cream wallpaper band #E9E0B4
+            var tl = new Vector4(0.573f, 0.522f, 0.357f, 0.62f);
+            var br = new Vector4(0.914f, 0.878f, 0.706f, 0.30f);
             dl.PushClipRect(a, b, true);
             Ui.DiagGrad(dl, a, b, tl, br, rad);
             // warm bloom bottom-left (wallpaper light leaking through the glass)
@@ -295,12 +280,12 @@ namespace Fluensia.Views
             dl.AddRect(a, b, Palette.U32(new Vector4(1f, 0.95f, 0.80f, 0.10f)), rad, ImDrawFlags.RoundCornersAll, _app.Sc(1f));
 
             // header row
-            float hty = r.Top + 3.5f;
-            Ui.Text(dl, _app.F.Small, _app.P(r.Left + 4.5f, hty), c.Title, Palette.A(Palette.Text, 0.98f));
+            float hty = r.Top + 6f;
+            Ui.Text(dl, _app.F.Small, _app.P(r.Left + 5.5f, hty), c.Title, Palette.A(Palette.Text, 0.98f));
             float tw = _app.F.Small.Measure(c.Title).X;
-            Ui.Text(dl, _app.F.Micro, _app.P(r.Left + 7.5f + tw, hty + 2f), "v" + c.Version, Palette.A(Palette.Text, 0.45f));
-            Ui.TextR(dl, _app.F.Micro, _app.P(r.Right - 28f, hty + 2f), "Работает", Palette.A(Palette.Text, 0.62f));
-            Ui.TextR(dl, _app.F.Micro, _app.P(r.Right - 45f, hty + 2f), c.Tag, Palette.A(Palette.Text, 0.42f));
+            Ui.Text(dl, _app.F.Micro, _app.P(r.Left + 8f + tw, hty + 2f), "v" + c.Version, Palette.A(Palette.Text, 0.45f));
+            Ui.TextR(dl, _app.F.Micro, _app.P(r.Right - 8f, hty + 2f), "Работает", Palette.A(Palette.Text, 0.62f));
+            Ui.TextR(dl, _app.F.Micro, _app.P(r.Right - 30f, hty + 2f), c.Tag, Palette.A(Palette.Text, 0.42f));
 
             // inner dark plate
             var ia = _app.P(inner.Left, inner.Top);
@@ -310,11 +295,11 @@ namespace Fluensia.Views
             dl.AddRect(ia, ib, Palette.U32(new Vector4(1f, 0.95f, 0.75f, 0.06f)), ir, ImDrawFlags.RoundCornersAll, _app.Sc(1f));
 
             // column 1 — lede + feature list
-            float colX = inner.Left + 2.5f;
-            Ui.Text(dl, _app.F.Micro, _app.P(colX, inner.Top + 4.5f), c.DetailLede, Palette.A(Palette.Text, 0.88f));
+            float colX = inner.Left + 3.5f;
+            Ui.Text(dl, _app.F.Small, _app.P(colX, inner.Top + 3f), c.DetailLede, Palette.A(Palette.Text, 0.88f));
             for (int i = 0; i < c.Features.Length; i++)
             {
-                float fy = inner.Top + 14f + i * 7.5f;
+                float fy = inner.Top + 9f + i * 8f;
                 var bc = _app.P(colX + 2.5f, fy + 1.5f);
                 dl.AddCircle(bc, _app.Sc(2.1f), Palette.U32(new Vector4(1f, 1f, 1f, 0.50f)), 24, _app.Sc(0.6f));
                 dl.AddLine(bc + new Vector2(-_app.Sc(0.8f), 0), bc + new Vector2(_app.Sc(0.9f), 0), Palette.U32(new Vector4(1, 1, 1, 0.5f)), _app.Sc(0.6f));
@@ -323,22 +308,24 @@ namespace Fluensia.Views
             }
 
             // column 2 — Подключение (title x 285, body x 285 y 240, chips y 267..276)
-            float midX = r.Left + 134f;
-            Ui.Text(dl, _app.F.Micro, _app.P(midX, inner.Top + 4.5f), "Подключение", Palette.A(Palette.Text, 0.92f));
-            Ui.Text(dl, _app.F.Micro, _app.P(midX, inner.Top + 11.5f), "Меню рисуется прямо", Palette.A(Palette.Text, 0.58f));
-            Ui.Text(dl, _app.F.Micro, _app.P(midX, inner.Top + 17f), "внутри игры", Palette.A(Palette.Text, 0.58f));
-            float chipY = inner.Bottom - 15f;
-            DrawChip(dl, "Internal2", _app.P(midX, chipY), _app.Sc(31f), _app.Sc(9.5f), "Internal", Scope == 0);
-            DrawChip(dl, "External2", _app.P(midX + _app.Sc(33.5f), chipY), _app.Sc(31f), _app.Sc(9.5f), "External", Scope == 1);
+            float midX = r.Left + 133f;
+            Ui.Text(dl, _app.F.Small, _app.P(midX, inner.Top + 4f), "Подключение", Palette.A(Palette.Text, 0.92f));
+            Ui.Text(dl, _app.F.Micro, _app.P(midX, inner.Top + 12f), "Меню рисуется прямо", Palette.A(Palette.Text, 0.58f));
+            Ui.Text(dl, _app.F.Micro, _app.P(midX, inner.Top + 18f), "внутри игры", Palette.A(Palette.Text, 0.58f));
+            float chipY = r.Bottom - 26f;
+            DrawChip(dl, "Internal2", _app.P(midX, chipY), _app.Sc(30f), _app.Sc(10f), "Internal", Scope == 0);
+            DrawChip(dl, "External2", _app.P(midX + _app.Sc(32.5f), chipY), _app.Sc(30f), _app.Sc(10f), "External", Scope == 1);
 
             // column 3 — Готово к запуску + CTA (title x 375, CTA x 375..443, y 266..280)
             float rightX = r.Left + 224f;
-            Ui.Text(dl, _app.F.Micro, _app.P(rightX, inner.Top + 4.5f), "Готово к запуску", Palette.A(Palette.Text, 0.92f));
-            Ui.Text(dl, _app.F.Micro, _app.P(rightX, inner.Top + 11.5f), "Fluensia сама найдёт игру и", Palette.A(Palette.Text, 0.58f));
-            Ui.Text(dl, _app.F.Micro, _app.P(rightX, inner.Top + 17f), "подключится", Palette.A(Palette.Text, 0.58f));
+            Ui.Text(dl, _app.F.Small, _app.P(rightX, inner.Top + 4f), "Готово к запуску", Palette.A(Palette.Text, 0.92f));
+            Ui.Text(dl, _app.F.Micro, _app.P(rightX, inner.Top + 12f), "Fluensia сама найдёт игру и", Palette.A(Palette.Text, 0.58f));
+            Ui.Text(dl, _app.F.Micro, _app.P(rightX, inner.Top + 18f), "подключится", Palette.A(Palette.Text, 0.58f));
 
-            var ba = _app.P(r.Right - 57f, inner.Bottom - 13.5f);
-            var bb = _app.P(r.Right - 4f, inner.Bottom - 1.5f);
+            // measured: CTA x 447..459.5, y 254..270 design; its right edge is inset 12 from the panel
+            // measured CTA: x 386..459.5, y 270..284.5 (inner plate right edge 447, panel 449)
+            var ba = _app.P(380f, r.Bottom - 26f);
+            var bb = _app.P(r.Right - 2.5f, r.Bottom - 5.5f);
             LaunchGlow += Ui.Dt;
             float pulse = 0.55f + 0.45f * MathF.Sin(LaunchGlow * 2.2f);
             dl.AddRectFilled(ba - new Vector2(0, _app.Sc(1f)), bb + new Vector2(0, _app.Sc(1.5f)),
@@ -362,7 +349,7 @@ namespace Fluensia.Views
         private void DrawWrapped(ImDrawListPtr dl, Font f, Vector2 pos, string text, Vector4 col, float width)
         {
             var lines = text.Split('\n');
-            float lh = f.Size * 1.35f * _app.Sc(1f);
+            float lh = f.Size * 1.35f * Program.Scale;
             for (int i = 0; i < lines.Length; i++)
             {
                 var tmp = "";

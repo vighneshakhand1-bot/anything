@@ -2,9 +2,15 @@
   "source": {
     "file": "videoplayback.mp4",
     "native_fps": 30,
-    "size": [576, 360],
+    "size": [
+      576,
+      360
+    ],
     "duration_s": 263.87,
-    "design_space": [576, 360]
+    "design_space": [
+      576,
+      360
+    ]
   },
   "colors": {
     "wall_top": "#6E858C",
@@ -27,19 +33,88 @@
     "settings_card": "#141416"
   },
   "layout": {
-    "window": { "x": [118, 457], "y": [60, 299], "radius": 12 },
-    "sidebar": { "x": [118, 137] },
-    "title_row": { "y": [60, 92] },
-    "search_pill": { "x": [375, 411], "y": [63, 79] },
-    "window_buttons": { "centers_x": [420, 432, 443], "center_y": 71, "diameter": 11 },
-    "card_row": { "x": [145, 449], "y": [86, 218], "card_w": 68.5, "card_h": 132, "gutter": 9.5 },
-    "detail_panel": { "x": [145, 449], "y": [215, 292], "radius": 7 },
-    "login_panel": { "x": [122, 214], "y": [66, 293], "radius": 10 }
+    "window": {
+      "x": [
+        118,
+        457
+      ],
+      "y": [
+        60,
+        299
+      ],
+      "radius": 12
+    },
+    "sidebar": {
+      "x": [
+        118,
+        137
+      ]
+    },
+    "title_row": {
+      "y": [
+        60,
+        92
+      ]
+    },
+    "search_pill": {
+      "x": [
+        375,
+        411
+      ],
+      "y": [
+        63,
+        79
+      ]
+    },
+    "window_buttons": {
+      "centers_x": [
+        420,
+        432,
+        443
+      ],
+      "center_y": 71,
+      "diameter": 11
+    },
+    "card_row": {
+      "x": [
+        145,
+        449
+      ],
+      "y": [
+        86,
+        218
+      ],
+      "card_w": 68.5,
+      "card_h": 132,
+      "gutter": 9.5
+    },
+    "detail_panel": {
+      "x": [
+        145,
+        449
+      ],
+      "y": [
+        215,
+        292
+      ],
+      "radius": 7
+    },
+    "login_panel": {
+      "x": [
+        122,
+        214
+      ],
+      "y": [
+        66,
+        293
+      ],
+      "radius": 10
+    }
   },
   "events": [
     {
       "t_start": 12.03,
-      "t_end": 12.30,
+      "t_end": 12.3,
       "element": "content area",
       "property": "opacity / glass dissolve",
       "from": "1",
@@ -52,7 +127,7 @@
     },
     {
       "t_start": 86.27,
-      "t_end": 86.60,
+      "t_end": 86.6,
       "element": "window",
       "property": "theme flip (teal glass -> dark settings)",
       "from": "mean luma 11.9",
@@ -102,5 +177,78 @@
       "trigger": "card click",
       "basis": "EST"
     }
-  ]
+  ],
+  "layout_revised": {
+    "note": "second pass, measured on the 11.50 s frame (1152x720 px = 2x design) — supersedes layout.boxes where they differ",
+    "units": "design px (576x360 space)",
+    "window": [
+      116,
+      60,
+      460,
+      300
+    ],
+    "sidebar": [
+      116,
+      60,
+      136,
+      300
+    ],
+    "title_row": [
+      136,
+      60,
+      460,
+      92
+    ],
+    "search_pill": [
+      373.5,
+      64,
+      411.5,
+      78
+    ],
+    "window_buttons_cx": [
+      420,
+      431,
+      442
+    ],
+    "cards": {
+      "row": [
+        146,
+        88,
+        446.5,
+        221.5
+      ],
+      "width": 66.75,
+      "gutter": 6.5,
+      "footer_top": 156.5
+    },
+    "detail_panel": [
+      147,
+      212.5,
+      449,
+      296
+    ],
+    "detail_inner": [
+      149,
+      224,
+      447,
+      289.5
+    ],
+    "detail_cta": [
+      386,
+      270,
+      459.5,
+      284.5
+    ],
+    "nav_icons_y": [
+      90,
+      107,
+      122,
+      138,
+      155
+    ],
+    "rail_chat_avatar": [
+      259,
+      274
+    ]
+  }
 }

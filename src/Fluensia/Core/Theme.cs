@@ -12,8 +12,8 @@ namespace Fluensia.Core
         // window / chrome
         public static Vector4 WallTop    = Hex("#6E858C");   // wallpaper gradient top
         public static Vector4 WallBottom = Hex("#A8BAB8");   // wallpaper gradient bottom (cream haze)
-        public static Vector4 Win        = Hex("#7E939A");   // window body glass @ 1.0
-        public static Vector4 WinDeep    = Hex("#54686C");   // sidebar column
+        public static Vector4 Win        = Hex("#42565A");   // window body glass (composited over the wallpaper)
+        public static Vector4 WinDeep    = Hex("#38494B");   // sidebar column (darker glass)
         public static Vector4 WinBorder  = Hex("#434F52");   // outer hairline
 
         // text
@@ -29,16 +29,17 @@ namespace Fluensia.Core
         public static Vector4 PurpleDim  = Hex("#5F4A9E");
 
         // cards
-        public static Vector4 CardFoot   = Hex("#131316");
-        public static Vector4 CardFoot2  = Hex("#0C0C0E");
+        public static Vector4 CardFoot   = Hex("#242020");   // warm charcoal, sampled at 0.96 over the art
+        public static Vector4 CardFoot2  = Hex("#2A1E17");
         public static Vector4 ChipDark   = Hex("#0A0A0B");
         public static Vector4 Pill       = Hex("#232326");
         public static Vector4 PillHover  = Hex("#33333A");
 
-        // detail panel (olive-gradient glass, sampled #8E845D -> #2F221A overlay over glass)
-        public static Vector4 PanelHdr   = Hex("#4E5642");
-        public static Vector4 PanelBody  = Hex("#39402F");
+        // detail panel: translucent olive glass, header #92855B, body melts into the cream band #E9E0B4
+        public static Vector4 PanelHdr   = Hex("#92855B");
+        public static Vector4 PanelBody  = Hex("#B9AC86");
         public static Vector4 PanelOlive = Hex("#847A4E");
+        public static Vector4 PanelCream = Hex("#E9E0B4");
 
         // dark settings theme
         public static Vector4 DarkBg     = Hex("#0B0B0C");

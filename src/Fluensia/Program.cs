@@ -95,6 +95,7 @@ namespace Fluensia
             if (shotDir != null) Dpi = 2f;
             Scale = shotDir != null ? 2f : 1f;
             Ui.Dt = 1f / 60f;
+            if (shotDir != null) Ui.Layout = new System.Collections.Generic.List<string>();
 
             var sw = Stopwatch.StartNew();
             double last = 0;
@@ -124,6 +125,7 @@ namespace Fluensia
                 if (initialised && Math.Abs(UiScale - _fontScale) > 0.02f && shotDir == null)
                 {
                     _fontScale = UiScale;
+                    App.F.InvalidateMeasurements();      // cached string sizes depend on Program.Scale
                     App.F = new Fonts(AppContext.BaseDirectory, UiScale);
                     App.F.Build();
                     Controller.RecreateFontDeviceTexture(Gd);
@@ -166,7 +168,12 @@ namespace Fluensia
                 {
                     Snapshot.Png(Gd.MainSwapchain.Framebuffer, System.IO.Path.Combine(shotDir, $"f{frame:000}.png"));
                     frame++;
-                    if (frame >= shotFrames) break;
+                    if (frame >= shotFrames)
+                    {
+                        System.IO.Directory.CreateDirectory(shotDir);
+                        Tools.DumpLayout(System.IO.Path.Combine(shotDir, "layout.txt"));
+                        break;
+                    }
                 }
             }
         }
@@ -192,12 +199,15 @@ namespace Fluensia
             ImGui.StyleColorsDark();
 
             Ui.Rec = new UiRecorder((int)(DesignW * s), (int)(DesignH * s), s, new Glyphs(8));
+            Ui.Layout = new System.Collections.Generic.List<string>();
             App = new App();
             App.Init(new Fonts(), loadArt: false);
             App.PlayState(state, time);
 
-            for (int frame = 0; frame < 3; frame++)
+            // warm-up frames: let the hover/toggle springs settle, then capture the frame we keep
+            for (int frame = 0; frame < 4; frame++)
             {
+                Ui.Layout?.Clear();
                 Ui.Dt = 0.2f;
                 ImGui.NewFrame();
                 ImGui.SetNextWindowPos(Vector2.Zero);
@@ -213,6 +223,12 @@ namespace Fluensia
             var outPath = System.IO.Path.Combine(dir, "preview_" + state + ".png");
             Ui.Rec.Save(outPath);
             Console.WriteLine("preview written: " + outPath);
+            var report = System.IO.Path.Combine(dir, "preview_" + state + ".txt");
+            System.IO.File.WriteAllLines(report, Ui.Rec.SeenText);
+            Console.WriteLine("text dump: " + report + " (" + Ui.Rec.SeenText.Count + " runs)");
+            // the layout log carries only the last frame (earlier warm-up frames are cleared above)
+            Console.WriteLine("layout runs: " + (Ui.Layout?.Count ?? 0));
+            if (Ui.Layout != null) System.IO.File.WriteAllLines(System.IO.Path.Combine(dir, "preview_" + state + ".layout.txt"), Ui.Layout);
         }
 
         /// <summary>Uniform "contain" fit of the 576x360 design into the window, snapped to whole pixels.</summary>
@@ -246,7 +262,7 @@ namespace Fluensia
             var map = gd.Map<byte>(tex);
             // row-wise copy honouring RowPitch
             for (int y = 0; y < h; y++)
-                System.Runtime.InteropServices.Marshal.Copy(map.Data + (int)(y * map.RowPitch), rgba, y * (int)w * 4, (int)w * 4);
+                System.Runtime.InteropServices.Marshal.Copy(IntPtr.Add(map.Data, (int)(y * map.RowPitch)), rgba, y * (int)w * 4, (int)w * 4);
             gd.Unmap(tex);
             tex.Dispose();
             // BGRA -> RGBA for the PNG encoder

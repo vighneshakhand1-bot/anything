@@ -127,7 +127,7 @@ namespace Fluensia.Core
             SwitchT = Math.Min(1f, SwitchT + dt / 0.28f);   // measured: 8 frames @30fps ≈ 0.26 s
 
             var dl = DL;
-            dl.PushClipRect(Vector2.Zero, new Vector2(Program.Window.Width, Program.Window.Height), false);
+            dl.PushClipRect(Vector2.Zero, P(Program.DesignW, Program.DesignH), false);
 
             // 1. wallpaper — flat wall + illustrated map/clouds, warm haze bottom-left like the ref
             DrawWallpaper(dl);
@@ -137,7 +137,9 @@ namespace Fluensia.Core
 
             // 3. screens (cross-fade: outgoing screen, glass scrim, incoming screen)
             var content = Content;
-            if (SwitchT < 1f && Last != Current && ImGui.GetIO().MouseDelta.LengthSquared() < 0f)
+            // cross-fade measured at 12.03..12.30 s: outgoing screen stays, a glass scrim sweeps in,
+            // the incoming screen fades over it (170 ms core, ease-in-out)
+            if (SwitchT < 1f && Last != Current)
             {
                 DrawScreen(dl, Last, content);
                 float a = (1f - Ease.InOutCubic(SwitchT)) * 0.92f;
@@ -154,9 +156,20 @@ namespace Fluensia.Core
             // 4. sidebar sits above the content (it owns the app logo + nav + chat + avatar)
             DrawSidebar(dl);
 
-            // 5. global keyboard
+            // 5. global keyboard (skipped when the recorder owns the frame: no input backend there)
+            if (Ui.Rec == null) Keyboard();
+
+            dl.PopClipRect();
+        }
+
+        private void Keyboard()
+        {
             if (ImGui.IsKeyPressed(ImGuiKey.Escape, false)) Switch(Screen.Games);
-            if (ImGui.IsKeyPressed(ImGuiKey.M, false)) { Settings.ToggleTheme(); if (Current != Screen.Settings) Switch(Screen.Settings); }
+            if (ImGui.IsKeyPressed(ImGuiKey.M, false))
+            {
+                Settings.ToggleTheme();
+                if (Current != Screen.Settings) Switch(Screen.Settings);
+            }
             if (ImGui.IsKeyPressed(ImGuiKey._1, false)) Switch(Screen.Games);
             if (ImGui.IsKeyPressed(ImGuiKey._2, false)) Switch(Screen.Workshop);
             if (ImGui.IsKeyPressed(ImGuiKey._3, false)) Switch(Screen.Account);
@@ -166,8 +179,6 @@ namespace Fluensia.Core
                 Login.Key = string.IsNullOrWhiteSpace(Login.Key) ? "FLU0-7C2A-91DE-B3F4" : Login.Key;
                 Login.EnterT = 0.001f;
             }
-
-            dl.PopClipRect();
         }
 
         private void DrawScreen(ImDrawListPtr dl, Screen s, RectF content)
@@ -229,9 +240,9 @@ namespace Fluensia.Core
         // -----------------------------------------------------------------------------------------
         private void DrawWallpaper(ImDrawListPtr dl)
         {
-            var o = Program.Offset; var s = Program.Scale;
-            var px0 = o;
-            var px1 = o + new Vector2(Program.DesignW * s, Program.DesignH * s);
+            var s = Program.Scale;
+            var px0 = P(0f, 0f);
+            var px1 = px0 + new Vector2(Program.DesignW * s, Program.DesignH * s);
             // vertical gradient base
             Ui.VGrad(dl, px0, px1, Palette.WallTop, Palette.WallBottom);
             // warm cream haze bottom (sampled #A1B3B2 -> creamy #C6B78F in the recording)
@@ -289,7 +300,9 @@ namespace Fluensia.Core
         // -----------------------------------------------------------------------------------------
         //  sidebar
         // -----------------------------------------------------------------------------------------
-        private static readonly Ui.Icon[] NavIcons = { Ui.Icon.Grid, Ui.Icon.Diamond, Ui.Icon.Cloud, Ui.Icon.Bell, Ui.Icon.Clipboard, Ui.Icon.Gear };
+        // reference rail (top→bottom): grid, chevrons, folder, account, gear — the last two are drawn but inert
+        private static readonly Ui.Icon[] NavIcons =
+        { Ui.Icon.Grid, Ui.Icon.Chevrons, Ui.Icon.Folder, Ui.Icon.User, Ui.Icon.Gear };
 
         private void DrawSidebar(ImDrawListPtr dl)
         {
@@ -305,8 +318,8 @@ namespace Fluensia.Core
             // logo mark (measured: F mark at y 65..73, x 122..128)
             Ui.LogoF(dl, P(cx, Win.Top + 9f), Sc(9f), new Vector4(1, 1, 1, 0.96f));
 
-            // nav icons (measured: y 84, 98, 112, 126, 140)
-            var navY = new[] { 24f, 38f, 52f, 66f, 80f, 94f };
+            // nav icons measured at y 90 / 107 / 122 / 138 / 155 (design); order: grid, chevrons, folder, games, settings
+            var navY = new[] { 30f, 47f, 62f, 78f, 95f };
             for (int i = 0; i < navY.Length; i++)
             {
                 float y = Win.Top + navY[i];
@@ -315,7 +328,8 @@ namespace Fluensia.Core
                 var pillB = P(x1 - 2.5f, y + 6f);
                 bool over = Ui.Over(pillA, pillB);
                 float hov = Ui.Hover("nav" + i, over);
-                bool active = i == 3 /* account */ || (i == 0 && (Current == Screen.Games)) || (i == 1 && Current == Screen.Workshop) || (i == 4 && Current == Screen.Settings);
+                bool active = (i == 0 && Current == Screen.Games) || (i == 2 && Current == Screen.Workshop)
+                    || (i == 3 && Current == Screen.Account) || (i == 4 && Current == Screen.Settings);
                 float act = Ui.Toggle("navact" + i, active, 6f);
                 if (act > 0.01f)
                     Ui.Rect(dl, pillA, pillB, Palette.U32(new Vector4(1, 1, 1, 0.16f * act)), Sc(4f));
@@ -328,7 +342,7 @@ namespace Fluensia.Core
                     switch (i)
                     {
                         case 0: Switch(Screen.Games); break;
-                        case 1: Switch(Screen.Workshop); break;
+                        case 2: Switch(Screen.Workshop); break;
                         case 3: Switch(Screen.Account); break;
                         case 4: Switch(Screen.Settings); break;
                     }
@@ -337,10 +351,10 @@ namespace Fluensia.Core
             }
 
             // bottom: chat bubble + avatar
-            var chatC = P(cx, Win.Bottom - 27f);
+            var chatC = P(cx, 259f);
             float chatHov = Ui.Hover("chat", Ui.Over(chatC - S(5), chatC + S(5)));
             Ui.DrawIcon(dl, Ui.Icon.Chat, chatC, Sc(9f), Palette.A(Palette.Mix(Palette.TextMute, Palette.Text, chatHov), 0.8f), Sc(0.95f));
-            var avC = P(cx, Win.Bottom - 10f);
+            var avC = P(cx, 274f);
             dl.AddCircleFilled(avC, Sc(5f), Palette.U32(Palette.Yellow), 40);
             Ui.DrawIcon(dl, Ui.Icon.Dot, avC, Sc(6f), Palette.YellowInk, Sc(1.2f));
             dl.PopClipRect();
@@ -358,15 +372,16 @@ namespace Fluensia.Core
             float cy = content.Top + 11f;
             Ui.Text(dl, F.H2, P(content.Left + PadX + 1f, cy - 6f), title, Palette.A(Palette.Text, 0.97f));
 
-            float bx = content.Right - 3f;
-            WindowButton(dl, "wclose", bx - 5f, cy, Ui.Icon.Close, () => Environment.Exit(0));
-            WindowButton(dl, "wmin", bx - 13f, cy, Ui.Icon.Minus, () => { try { Program.Window.WindowState = WindowState.Minimized; } catch { } });
-            WindowButton(dl, "wexp", bx - 21f, cy, Ui.Icon.Expand, () => { });
+            // measured centres: close 443, minimise 432, expand 421 (spacing 11, all at y 71)
+            float bx = content.Right - 14f;
+            WindowButton(dl, "wclose", bx, cy, Ui.Icon.Close, () => Environment.Exit(0));
+            WindowButton(dl, "wmin", bx - 11f, cy, Ui.Icon.Minus, () => { try { Program.Window.WindowState = WindowState.Minimized; } catch { } });
+            WindowButton(dl, "wexp", bx - 22f, cy, Ui.Icon.Expand, () => { });
 
             if (!showSearch) return;
 
             float sw = 36f, sh = 14f;
-            float sx = content.Right - 27f - sw;   // measured: pill x 375..411
+            float sx = content.Right - 82f;        // measured: pill x 375..411 (content right 457)
             var sa = P(sx, cy - sh * 0.5f); var sb = P(sx + sw, cy + sh * 0.5f);
             bool overS = Ui.Over(sa, sb);
             float hovS = Ui.Hover("search", overS);

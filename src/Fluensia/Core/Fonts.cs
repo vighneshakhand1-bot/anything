@@ -10,20 +10,31 @@ namespace Fluensia.Core
     public sealed class Font
     {
         public ImFontPtr Ptr;
+
+        /// <summary>Design-space line height (line box). Drawn size = Size * Program.Scale.</summary>
         public float Size;
+
+        /// <summary>Devices px per window px (DPI). Part of the rasterisation density, not the layout.</summary>
+        public float Density = 1f;
+
         private readonly Dictionary<string, Vector2> _cache = new();
+
+        /// <summary>On-screen glyph size in framebuffer px (the size ImGui needs at draw time).</summary>
+        public float DrawSize => Size * Program.Scale;
 
         public Vector2 Measure(string s)
         {
             if (string.IsNullOrEmpty(s)) return Vector2.Zero;
             if (_cache.TryGetValue(s, out var v)) return v;
-            if (Ui.Rec != null) { var g = Ui.Rec.Glyph.Measure(s, Size); _cache[s] = g; return g; }
-            var size = Ptr.CalcTextSizeA(Size, float.MaxValue, -1f, s);
+            if (Ui.Rec != null) { var g = Ui.Rec.Glyph.Measure(s, DrawSize); _cache[s] = g; return g; }
+            var size = Ptr.CalcTextSizeA(DrawSize, float.MaxValue, -1f, s);
             _cache[s] = size;
             return size;
         }
 
         public float Width(string s) => Measure(s).X;
+
+        public void ClearCache() { _cache.Clear(); _glyphs.Clear(); }
 
         // UTF-16 glyph indices per string (AddText requires a codepoint run, not a UTF-8 string)
         private readonly Dictionary<string, ushort[]> _glyphs = new();
@@ -82,43 +93,64 @@ namespace Fluensia.Core
 
         private readonly List<Font> _all = new();
         private readonly string _dir;
+
+        /// <summary>Drops every cached string measurement (call when the window scale changes).</summary>
+        public void InvalidateMeasurements()
+        {
+            foreach (var f in _all) f.ClearCache();
+        }
         public float Density { get; private set; } = 1f;
+
+        /// <summary>Common type-scale multiplier (design px -> drawn px) for the whole ladder.</summary>
+        public float EmScale { get; private set; } = 1.38f;
+
+        /// <summary>
+        /// Design-space type ladder in *height* px. ImGui's `AddText(font, size, ...)` scales glyphs by
+        /// `size / bakedSize`, and CalcTextSizeA reports a line height of `size` — so the size we pass
+        /// at draw time must also be the real on-screen height. The ladder therefore scales the
+        /// vertical metrics down by LineHeight (2.478 em) and the em box itself by the same factor,
+        /// giving cap heights of 8.3 / 6.3 / 5.0 / 4.2 px for H1..Micro at 2x (see brief.md).
+        /// </summary>
+        public const float DesignEm = 0.5568f;   // 1 / 1.796 — see the table in analysis/brief.md
+        public const float EmK = DesignEm * 1.38f;
 
         /// <summary>Preview constructor: no atlas, no device — sizes come from the same ladder.</summary>
         public Fonts()
         {
-            H1 = new Font { Size = 12.50f * 1.38f };
-            H2 = new Font { Size = 9.50f * 1.38f };
-            H3 = new Font { Size = 7.60f * 1.38f };
-            Body = new Font { Size = 6.40f * 1.38f };
-            BodyM = new Font { Size = 6.40f * 1.38f };
-            Small = new Font { Size = 5.70f * 1.38f };
-            Tiny = new Font { Size = 5.20f * 1.38f };
-            Micro = new Font { Size = 4.70f * 1.38f };
-            Big = new Font { Size = 20.00f * 1.38f };
-            Price = new Font { Size = 11.50f * 1.38f };
+            EmScale = EmK;
+            H1 = new Font { Size = 12.50f * EmK };
+            H2 = new Font { Size = 9.50f * EmK };
+            H3 = new Font { Size = 7.60f * EmK };
+            Body = new Font { Size = 6.40f * EmK };
+            BodyM = new Font { Size = 6.40f * EmK };
+            Small = new Font { Size = 5.70f * EmK };
+            Tiny = new Font { Size = 5.20f * EmK };
+            Micro = new Font { Size = 4.70f * EmK };
+            Big = new Font { Size = 20.00f * EmK };
+            Price = new Font { Size = 11.50f * EmK };
         }
 
         public Fonts(string assetsDir, float dpiScale)
         {
+            EmScale = EmK;
             _dir = Path.Combine(assetsDir, "fonts");
-            Density = Math.Clamp(dpiScale, 1f, 3f);
+            Density = Math.Clamp(dpiScale, 1f, 3f);   // already includes the window scale (see Program)
             var io = ImGui.GetIO();
             io.Fonts.Clear();
             io.Fonts.Flags |= ImFontAtlasFlags.NoBakedLines;
             IntPtr ranges = io.Fonts.GetGlyphRangesCyrillic();
 
             // reference is a 2x capture: 26 px title @2x == 13 design px, so sizes here are design px
-            H1 = Add("Inter-SemiBold.ttf", 12.50f, ranges, 1.38);
-            H2 = Add("Inter-SemiBold.ttf", 9.50f, ranges, 1.38);
-            H3 = Add("Inter-SemiBold.ttf", 7.60f, ranges, 1.38);
-            Body = Add("Inter-Regular.ttf", 6.40f, ranges, 1.38);
-            BodyM = Add("Inter-Medium.ttf", 6.40f, ranges, 1.38);
-            Small = Add("Inter-Medium.ttf", 5.70f, ranges, 1.38);
-            Tiny = Add("Inter-Medium.ttf", 5.20f, ranges, 1.38);
-            Micro = Add("Inter-Medium.ttf", 4.70f, ranges, 1.38);
-            Big = Add("Inter-SemiBold.ttf", 20.00f, ranges, 1.38);
-            Price = Add("Inter-SemiBold.ttf", 11.50f, ranges, 1.38);
+            H1 = Add("Inter-SemiBold.ttf", 12.50f, ranges, EmScale);
+            H2 = Add("Inter-SemiBold.ttf", 9.50f, ranges, EmScale);
+            H3 = Add("Inter-SemiBold.ttf", 7.60f, ranges, EmScale);
+            Body = Add("Inter-Regular.ttf", 6.40f, ranges, EmScale);
+            BodyM = Add("Inter-Medium.ttf", 6.40f, ranges, EmScale);
+            Small = Add("Inter-Medium.ttf", 5.70f, ranges, EmScale);
+            Tiny = Add("Inter-Medium.ttf", 5.20f, ranges, EmScale);
+            Micro = Add("Inter-Medium.ttf", 4.70f, ranges, EmScale);
+            Big = Add("Inter-SemiBold.ttf", 20.00f, ranges, EmScale);
+            Price = Add("Inter-SemiBold.ttf", 11.50f, ranges, EmScale);
         }
 
         /// <summary>Every font is rasterised at its design size x EmScale: the reference's type is
@@ -131,12 +163,15 @@ namespace Fluensia.Core
             cfgPtr.OversampleH = 2;
             cfgPtr.OversampleV = 2;
             cfgPtr.PixelSnapH = 0;
-            // rasterise at the DRAWN size so glyphs are never upscaled (px * emScale * DPI * UI scale)
-            cfgPtr.RasterizerDensity = Density * emScale;
+            // rasterise at the DRAWN size so glyphs are never upscaled:
+            //   drawn px = design px * emK * (window px per design px)
+            cfgPtr.RasterizerDensity = Density;
             cfgPtr.GlyphMinAdvanceX = 0;
             var path = Path.Combine(_dir, file);
-            var f = ImGui.GetIO().Fonts.AddFontFromFileTTF(path, px, cfgPtr, ranges);
-            var font = new Font { Ptr = f, Size = px * emScale };
+            // load at the *design* line height: the atlas bakes glyphs at px*RasterizerDensity and
+            // AddText scales by DrawSize/bakedSize, so density carries DPI and UI scale separately
+            var f = ImGui.GetIO().Fonts.AddFontFromFileTTF(path, px * emScale, cfgPtr, ranges);
+            var font = new Font { Ptr = f, Size = px * emScale, Density = Density };
             _all.Add(font);
             return font;
         }

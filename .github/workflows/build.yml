@@ -19,6 +19,16 @@ jobs:
         run: dotnet build src/Fluensia/Fluensia.csproj -c Release -r win-x64 --self-contained false
       - name: Publish (framework-dependent)
         run: dotnet publish src/Fluensia/Fluensia.csproj -c Release -r win-x64 --self-contained false -o dist/Fluensia
+      - name: Layout preview (GPU-less) for every screen
+        shell: pwsh
+        run: |
+          foreach ($s in @('games','workshop','account','settings','login')) {
+            & dist/Fluensia/Fluensia.exe --ui-preview dist/preview --state $s
+            if (-not (Test-Path "dist/preview/preview_$s.png")) { throw "preview failed for $s" }
+          }
+          if (-not (Select-String -Path dist/preview/preview_games.txt -Pattern 'Counter-Strike 2' -Quiet)) {
+            throw "games screen did not draw its card titles"
+          }
       - name: Publish (portable single file)
         run: >
           dotnet publish src/Fluensia/Fluensia.csproj -c Release -r win-x64 --self-contained true
@@ -36,6 +46,12 @@ jobs:
             Fluensia-win-x64.zip
             Fluensia-win-x64-portable.zip
             Fluensia-src.zip
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Fluensia-layout-preview
+          path: dist/preview/*
+          if-no-files-found: warn
 
   linux-check:
     runs-on: ubuntu-latest
@@ -46,6 +62,18 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Build (compile check)
         run: dotnet build src/Fluensia/Fluensia.csproj -c Release -r linux-x64
+      - name: Layout preview + geometry assertions (no GPU in CI)
+        env:
+          LIBGL_ALWAYS_SOFTWARE: 1
+        run: |
+          BIN=$(find src/Fluensia/bin/Release -maxdepth 3 -name Fluensia -type f | head -1)
+          echo "binary: $BIN"
+          "$BIN" --ui-preview out --state games
+          test -f out/preview_games.png && echo "preview ok"
+          grep -q 'Counter-Strike 2' out/preview_games.txt || { echo "missing card title"; exit 1; }
+          grep -q 'Запустить' out/preview_games.txt || { echo "missing CTA"; exit 1; }
+          # every logged widget must sit inside the 576x360 design rect
+          awk '$2+0 < -1 || $2+0 > 577 || $3+0 < -1 || $3+0 > 361 { print "out of bounds: " $0; bad=1 } END { exit bad }' out/preview_games.layout.txt
 
   release:
     needs: windows
@@ -69,4 +97,8 @@ jobs:
             Fluensia-win-x64.zip
             Fluensia-win-x64-portable.zip
             Fluensia-src.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Fluensia-layout-preview
+          path: dist/preview/*
           generate_release_notes: true

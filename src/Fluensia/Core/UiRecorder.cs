@@ -20,6 +20,9 @@ namespace Fluensia.Core
         public readonly Glyphs Glyph;
         public string LastText = "";
 
+        /// <summary>Whether any of the recorded text matched a needle (verifier helper).</summary>
+        public readonly List<string> SeenText = new List<string>();
+
         public UiRecorder(int width, int height, float scale, Glyphs glyphs)
         {
             W = width; H = height; _scale = scale;
@@ -155,12 +158,14 @@ namespace Fluensia.Core
         public void Text(Vector2 pos, float px, uint col, string s)
         {
             LastText = s;
+            SeenText.Add(s);
             float x = pos.X;
+            float baseline = pos.Y + (Metrics.Ascender - Metrics.CapHeight) * px;
             foreach (var ch in s)
             {
                 var g = Glyph.Get(ch, px);
                 int gw = g.w, gh = g.h;
-                var (xa, ya, xb, yb) = Box(new Vector2(x, pos.Y), new Vector2(x + gw / _scale, pos.Y + gh / _scale));
+                var (xa, ya, xb, yb) = Box(new Vector2(x, baseline), new Vector2(x + gw / _scale, baseline + gh / _scale));
                 for (int gy = 0; gy < gh; gy++)
                     for (int gx = 0; gx < gw; gx++)
                     {
@@ -260,45 +265,44 @@ namespace Fluensia.Core
     }
 
     /// <summary>
-    /// Proxy glyph set for the preview: real advances (measured with GDI+ on the Windows build,
-    /// or a monospaced fallback elsewhere), blocky 5x7-ish glyph bitmaps so text placement and
-    /// string extents can be judged without an ImGui font atlas.
+    /// Proxy glyph set for the preview: advances come from the real Inter metrics baked in
+    /// <see cref="Metrics"/>, and each glyph is stamped as a solid box of x-height/cap-height so line
+    /// lengths match the shipped font atlas. It is a layout proxy, not a font rasteriser.
     /// </summary>
     public sealed class Glyphs
     {
-        public readonly Dictionary<char, float> Advance = new Dictionary<char, float>();
-        private readonly int _px;
-        public Glyphs(int px) { _px = px; }
-
         private readonly Dictionary<string, Vector2> _sizes = new Dictionary<string, Vector2>();
 
         public Vector2 Measure(string s, float sizePx)
         {
             var key = sizePx.ToString("F2") + "|" + s;
             if (_sizes.TryGetValue(key, out var v)) return v;
-            float w = 0;
-            foreach (var ch in s) w += Math.Max(2, (int)MathF.Round(sizePx * (ch == ' ' ? 0.30f : 0.56f))) + sizePx * 0.06f;
-            v = new Vector2(w, Math.Max(2, (int)MathF.Round(sizePx * 0.72f)));
+            v = new Vector2(Metrics.Width(s) * sizePx, Metrics.CapHeight * sizePx);
             _sizes[key] = v;
             return v;
         }
 
+        /// <summary>One glyph cell: ink box + advance, both in device px.</summary>
         public (int w, int h, byte[] px, float adv) Get(char ch, float sizePx)
         {
-            int w = Math.Max(2, (int)MathF.Round(sizePx * (ch == ' ' ? 0.30f : 0.56f)));
-            int h = Math.Max(2, (int)MathF.Round(sizePx * 0.72f));
+            float adv = Metrics.Advance(ch) * sizePx;
+            int w = Math.Max(1, (int)MathF.Round(adv * 0.82f));
+            int h = Math.Max(2, (int)MathF.Round(sizePx * (char.IsUpper(ch) || ch == 'М' ? Metrics.CapHeight : Metrics.XHeight)));
             var px = new byte[w * h];
-            // simple 5-column stroke font: derive a bit pattern from the character code so strings
-            // are visibly distinct while extents stay proportional to the real font size
-            int seed = ch * 2654435761u % 1000;
-            for (int x = 0; x < w; x++)
-                for (int y = 0; y < h; y++)
-                {
-                    bool on = ((x * 31 + y * 17 + seed) % 7) < 3;
-                    bool border = y == 0 || y == h - 1;
-                    if (on || border) px[y * w + x] = 200;
-                }
-            return (w, h, px, w + sizePx * 0.06f);
+            bool space = ch == ' ' || ch == '\u00A0' || ch == '\t';
+            if (!space)
+            {
+                // solid stem pattern keyed off the codepoint: distinct enough to read word shape,
+                // while the advance (not the ink) drives every measurement in the UI
+                int seed = (ch * 2654435761u) % 7;
+                for (int x = 0; x < w; x++)
+                    for (int y = 0; y < h; y++)
+                    {
+                        bool on = ((x * 3 + y * 5 + seed) % 5) < 3 || x == 0 || x == w - 1;
+                        if (on) px[y * w + x] = 190;
+                    }
+            }
+            return (w, h, px, adv);
         }
     }
 }

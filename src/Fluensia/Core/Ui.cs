@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using ImGuiNET;
-using Veldrid;
-using Fluensia.Core;
 
 namespace Fluensia.Core
 {
@@ -56,9 +54,6 @@ namespace Fluensia.Core
             return v;
         }
 
-        /// <summary>Graphics device handle used by a few widgets for texture uploads (glyph cache etc).</summary>
-        public static Veldrid.GraphicsDevice Device;
-
         /// <summary>
         /// Optional runtime draw-list mirror: when a UI preview recorder is attached, every
         /// primitive/text/image is also emitted into a software canvas (design units -> image px).
@@ -66,14 +61,18 @@ namespace Fluensia.Core
         /// </summary>
         public static UiRecorder Rec;
 
-        private static readonly Dictionary<Font, ImFontPtr> _fontSwap = new Dictionary<Font, ImFontPtr>();
-        private static ImFontPtr FontOr(Font f) => Rec == null || !_fontSwap.TryGetValue(f, out var t) ? f.Ptr : t;
+        /// <summary>Optional design-space layout log (one line per widget) for the verification tools.</summary>
+        public static List<string> Layout;
 
-        /// <summary>Swap the ImFont behind a Font (preview builds one synthetic atlas at runtime).</summary>
-        public static void SetFontPtr(Font f, ImFontPtr ptr) => _fontSwap[f] = ptr;
-
-        /// <summary>Colour with the opposite end of the alpha ramp for the software canvas.</summary>
-        public static uint InvCol(uint col) => col;
+        /// <summary>Records one widget in *design* units (window px are divided back down by Program.Scale).</summary>
+        private static void Log(string kind, Vector2 a, Vector2 b, string extra = null)
+        {
+            if (Layout == null) return;
+            float s = Program.Scale <= 0f ? 1f : Program.Scale;
+            Layout.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "{0,-6} {1,8:F2} {2,8:F2} {3,8:F2} {4,8:F2} {5}",
+                kind, a.X / s, a.Y / s, b.X / s, b.Y / s, extra));
+        }
 
         public static void Reset()
         {
@@ -87,6 +86,7 @@ namespace Fluensia.Core
         {
             dl.AddRectFilled(a, b, col, rounding, ImDrawFlags.RoundCornersAll);
             Rec?.Rect(a, b, col, rounding);
+            Log("rect", a, b, col.ToString("X8"));
         }
 
         public static void Rect(ImDrawListPtr dl, Vector2 a, Vector2 b, Vector4 col, float rounding = 0f)
@@ -108,6 +108,7 @@ namespace Fluensia.Core
         {
             dl.AddRect(a, b, col, rounding, ImDrawFlags.RoundCornersAll, th);
             Rec?.RectOutline(a, b, col, rounding, th);
+            Log("outl", a, b, th.ToString("F2"));
         }
 
         /// <summary>Line with preview mirroring (the corner ticks / dividers all go through here).</summary>
@@ -197,8 +198,9 @@ namespace Fluensia.Core
         {
             if (string.IsNullOrEmpty(s)) return pos;
             var at = Snap(pos);
-            if (Rec != null) { Rec.Text(at, f.Size, Palette.U32(col, alpha), s); return new Vector2(pos.X + f.Measure(s).X, pos.Y); }
-            dl.AddText(f.Ptr, f.Size, at, Palette.U32(col, alpha), f.Run(s));
+            Log("text", at, at + f.Measure(s), s.Replace(' ', '_'));
+            if (Rec != null) { Rec.Text(at, f.DrawSize, Palette.U32(col, alpha), s); return new Vector2(pos.X + f.Measure(s).X, pos.Y); }
+            dl.AddText(f.Ptr, f.DrawSize, at, Palette.U32(col, alpha), f.Run(s));
             return new Vector2(pos.X + f.Measure(s).X, pos.Y);
         }
 
@@ -208,9 +210,24 @@ namespace Fluensia.Core
             var p = new Vector2(center.X - size.X * 0.5f, center.Y - size.Y * 0.5f);
             if (!string.IsNullOrEmpty(s))
             {
-                if (Rec != null) Rec.Text(Snap(p), f.Size, Palette.U32(col, alpha), s);
-                else dl.AddText(f.Ptr, f.Size, Snap(p), Palette.U32(col, alpha), f.Run(s));
+                if (Rec != null) Rec.Text(Snap(p), f.DrawSize, Palette.U32(col, alpha), s);
+                else dl.AddText(f.Ptr, f.DrawSize, Snap(p), Palette.U32(col, alpha), f.Run(s));
             }
+            return p;
+        }
+
+        /// <summary>Centred text that shrinks (never wraps) to fit a max width — used for chips/labels.</summary>
+        public static Vector2 TextCFit(ImDrawListPtr dl, Font f, Vector2 center, string s, float maxW, Vector4 col, float alpha = 1f)
+        {
+            if (string.IsNullOrEmpty(s)) return center;
+            float w = f.Measure(s).X;
+            if (w <= maxW || w <= 0f) return TextC(dl, f, center, s, col, alpha);
+            // draw with the same font but a smaller line size so the run fits the pill
+            float k = maxW / w;
+            var size = f.DrawSize * k;
+            var p = new Vector2(center.X - w * k * 0.5f, center.Y - f.Size * k * 0.5f);
+            if (Rec != null) Rec.Text(Snap(p), size, Palette.U32(col, alpha), s);
+            else dl.AddText(f.Ptr, size, Snap(p), Palette.U32(col, alpha), f.Run(s));
             return p;
         }
 
@@ -220,8 +237,8 @@ namespace Fluensia.Core
             var p = new Vector2(right.X - size.X, right.Y);
             if (!string.IsNullOrEmpty(s))
             {
-                if (Rec != null) Rec.Text(Snap(p), f.Size, Palette.U32(col, alpha), s);
-                else dl.AddText(f.Ptr, f.Size, Snap(p), Palette.U32(col, alpha), f.Run(s));
+                if (Rec != null) Rec.Text(Snap(p), f.DrawSize, Palette.U32(col, alpha), s);
+                else dl.AddText(f.Ptr, f.DrawSize, Snap(p), Palette.U32(col, alpha), f.Run(s));
             }
             return p;
         }
@@ -237,7 +254,8 @@ namespace Fluensia.Core
         {
             None, Grid, Diamond, Cloud, Bell, Clipboard, CheckBadge, Gear, Chat, Search,
             Expand, Minimize, Close, Bolt, ArrowRight, ArrowLeft, Monitor, Refresh, Plus, Minus,
-            Download, External, Cart, Shield, Discord, User, Dot, Target, Sliders, Crosshair, Keyboard, Lock
+            Download, External, Cart, Shield, Discord, User, Dot, Target, Sliders, Crosshair, Keyboard, Lock,
+            Chevrons, Folder
         }
 
         public static void DrawIcon(ImDrawListPtr dl, Icon icon, Vector2 c, float size, Vector4 col, float th = 1.6f)
@@ -318,6 +336,25 @@ namespace Fluensia.Core
                         var d = new Vector2(MathF.Cos(a0), MathF.Sin(a0));
                         dl.AddLine(c + d * s * 0.62f, c + d * s * 0.92f, u, th);
                     }
+                    break;
+                }
+                case Icon.Chevrons:
+                {
+                    // two stacked chevrons (the "collapse/open" affordance in the rail)
+                    for (int k = 0; k < 2; k++)
+                    {
+                        float dy = (k == 0 ? -0.22f : 0.22f);
+                        dl.AddLine(P(-0.55f, dy - 0.18f), P(0f, dy + 0.18f), u, th);
+                        dl.AddLine(P(0f, dy + 0.18f), P(0.55f, dy - 0.18f), u, th);
+                    }
+                    break;
+                }
+                case Icon.Folder:
+                {
+                    dl.AddLine(P(-0.75f, -0.35f), P(-0.2f, -0.35f), u, th);
+                    dl.AddLine(P(-0.2f, -0.35f), P(-0.05f, -0.62f), u, th);
+                    dl.AddLine(P(-0.05f, -0.62f), P(0.75f, -0.62f), u, th);
+                    dl.AddRect(P(-0.75f, -0.35f), P(0.75f, 0.62f), u, s * 0.14f, ImDrawFlags.RoundCornersAll, th);
                     break;
                 }
                 case Icon.Chat:
@@ -479,6 +516,10 @@ namespace Fluensia.Core
         // -----------------------------------------------------------------------------------------
         //  hit-testing / interaction helpers
         // -----------------------------------------------------------------------------------------
+        /// <summary>
+        /// Hit test. The recorded reference drives all input from the OS cursor, so we simply mirror it;
+        /// when Rec is attached (headless preview, no input backend) a mouse at -FLT_MAX is ignored.
+        /// </summary>
         public static bool Over(Vector2 a, Vector2 b)
         {
             var m = ImGui.GetMousePos();
@@ -499,8 +540,10 @@ namespace Fluensia.Core
         }
 
         /// <summary>click with proper press/release pairing (release must land on the widget)</summary>
+        /// <summary>Buttons are inert in preview mode (there is no input backend behind the recorder).</summary>
         public static bool Button(string id, Vector2 a, Vector2 b)
         {
+            if (Rec != null) return false;
             ImGui.SetCursorScreenPos(a);
             ImGui.InvisibleButton(id, Vector2.Max(b - a, new Vector2(1, 1)));
             bool clicked = ImGui.IsItemActive() && ImGui.IsMouseReleased(ImGuiMouseButton.Left) && ImGui.IsItemHovered();
@@ -557,7 +600,7 @@ namespace Fluensia.Core
         /// <summary>Yellow primary CTA with bolt icon and pressed-scale.</summary>
         public static bool PrimaryButton(ImDrawListPtr dl, Font f, string id, Vector2 a, Vector2 b, string label, Icon icon = Icon.Bolt, bool small = false)
         {
-            bool over = Over(a, b);
+            bool over = Rec == null && Over(a, b);
             float hov = Hover(id, over);
             float press = Press(id + "#p", over && ImGui.IsMouseDown(ImGuiMouseButton.Left));
             float scale = 1f - 0.02f * press;

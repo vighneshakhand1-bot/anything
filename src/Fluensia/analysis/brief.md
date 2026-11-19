@@ -167,3 +167,35 @@ all line boxes were positioned from the measured rows above, so the *layout* sta
   settings surface is rebuilt as a static screen, not as an in-game overlay.
 * Skins/avatars in the shop are AI-generated stand-ins with the same crop, radius and label
   geometry as the reference.
+
+
+## Measurement pass 2 (11.50 s frame, 1152x720 px = 2x design) [OBS]
+
+The first table was read off a 814x576 crop and drifted by 3–8 design px in places. This pass re-measured
+the full 30 fps frame with column/row transition scans, so it supersedes the numbers above where they differ.
+
+| element | x (design) | y (design) | notes |
+|---|---|---|---|
+| window | 116 .. 460 | 60 .. 300 | 344 x 240, radius 12 |
+| sidebar rail | 116 .. 136 | 60 .. 300 | icons at x 124 |
+| title row | 136 .. 460 | 60 .. 92 | "Игры" baseline ~ y 80, x 143 |
+| search pill | 373.5 .. 411.5 | 64 .. 78 | 38 x 14, radius 7 |
+| window buttons | centres 420 / 431 / 442 | y 71 | 11 px pitch |
+| game cards | 146 .. 446.5 | 88 .. 221.5 | 4 x 66.75 wide, 6.5 gutter |
+| card footer | — | 156.5 .. 221.5 | 65 tall (art is 68.5 tall) |
+| card chip row | left 148 / 172 | 179 .. 188.5 | "Internal" / "External", 23 x 8.5 |
+| detail panel | 147 .. 449 | 212.5 .. 296 | radius 7, olive → cream glass |
+| detail inner plate | 149 .. 447 | 224 .. 289.5 | radius 5, dark 0.55 alpha |
+| detail CTA | 386 .. 459.5 | 270 .. 284.5 | abuts the panel's right edge, 14.5 tall |
+| detail columns | 155 / 280 / 371 | 228 (titles) | lede, Подключение, Готово к запуску |
+| nav icons | 124 (centre) | 90, 107, 122, 138, 155 | grid, chevrons, folder, account, gear |
+| rail bottom | 124 | 259 (chat), 274 (avatar) | avatar 10 px yellow disc |
+
+Colour corrections from the same frame: window glass is cool grey-blue (`#42565A` @0.55 over the wallpaper),
+the rail is darker (`#38494B` @0.6), the detail panel header samples `#92855B` and its body melts into the
+wallpaper's cream band `#E9E0B4` — the detail panel is translucent glass, not a solid olive plate.
+Card footers sample `#242020`..`#2A1E17` (warm charcoal, 0.96 alpha).
+
+Two earlier guesses were removed: the cream checkerboard band behind the cards does not exist in the
+reference (what looked like a strip is the wallpaper's own band behind the translucent detail panel), and
+the nav rail has five icons, not six.
