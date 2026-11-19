@@ -1,0 +1,8 @@
+# build output
+bin/
+obj/
+dist/
+*.user
+# scratch (frame extraction / measurement artefacts)
+.video-to-ui/
+# keep the source clip out of the build, it stays in the repo for reference

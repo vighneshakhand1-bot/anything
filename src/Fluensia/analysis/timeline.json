@@ -1,0 +1,106 @@
+{
+  "source": {
+    "file": "videoplayback.mp4",
+    "native_fps": 30,
+    "size": [576, 360],
+    "duration_s": 263.87,
+    "design_space": [576, 360]
+  },
+  "colors": {
+    "wall_top": "#6E858C",
+    "wall_bottom": "#A1B3B2",
+    "wall_haze_cream": "#C6B78F",
+    "window_glass": "#7E939A",
+    "sidebar": "#46585B",
+    "window_hairline": "#434F52",
+    "text_primary": "#F3F5F4",
+    "text_dim": "#C3CDCB",
+    "text_mute": "#9FAEB0",
+    "accent_yellow": "#F5D451",
+    "accent_yellow_deep": "#E9C244",
+    "accent_yellow_ink": "#2A2415",
+    "accent_purple": "#8A6DE0",
+    "card_footer": "#131316",
+    "detail_olive_top": "#8E845D",
+    "detail_olive_bottom": "#2F221A",
+    "settings_bg": "#0B0B0C",
+    "settings_card": "#141416"
+  },
+  "layout": {
+    "window": { "x": [118, 457], "y": [60, 299], "radius": 12 },
+    "sidebar": { "x": [118, 137] },
+    "title_row": { "y": [60, 92] },
+    "search_pill": { "x": [375, 411], "y": [63, 79] },
+    "window_buttons": { "centers_x": [420, 432, 443], "center_y": 71, "diameter": 11 },
+    "card_row": { "x": [145, 449], "y": [86, 218], "card_w": 68.5, "card_h": 132, "gutter": 9.5 },
+    "detail_panel": { "x": [145, 449], "y": [215, 292], "radius": 7 },
+    "login_panel": { "x": [122, 214], "y": [66, 293], "radius": 10 }
+  },
+  "events": [
+    {
+      "t_start": 12.03,
+      "t_end": 12.30,
+      "element": "content area",
+      "property": "opacity / glass dissolve",
+      "from": "1",
+      "to": "0 -> 1 (screen replaced at midpoint)",
+      "duration_ms": 270,
+      "easing": "ease-in-out (sigmoid)",
+      "easing_evidence": "30fps luma of box 0.28,0.45..0.45,0.85: 0.339->0.528, 15-85% core 167ms, floor at 12.03, plateau 12.30",
+      "trigger": "nav click",
+      "basis": "OBS curve (30fps pixel-measured)"
+    },
+    {
+      "t_start": 86.27,
+      "t_end": 86.60,
+      "element": "window",
+      "property": "theme flip (teal glass -> dark settings)",
+      "from": "mean luma 11.9",
+      "to": "mean luma 19.7",
+      "duration_ms": 330,
+      "easing": "ease-out",
+      "easing_evidence": "30fps frame-mean table: 11.9, 14.4, 16.4, 18.1, 19.1, 19.7 (settles by 86.60)",
+      "trigger": "settings tab / M",
+      "basis": "OBS curve (30fps)"
+    },
+    {
+      "t_start": null,
+      "t_end": null,
+      "element": "game card",
+      "property": "translateY + shadow",
+      "from": "0",
+      "to": "-2",
+      "duration_ms": 220,
+      "easing": "ease-out",
+      "easing_evidence": "not observable: cursor never dwells on a card in the clip",
+      "trigger": "hover",
+      "basis": "EST"
+    },
+    {
+      "t_start": null,
+      "t_end": null,
+      "element": "primary CTA",
+      "property": "scale",
+      "from": "1",
+      "to": "0.98",
+      "duration_ms": 90,
+      "easing": "ease-out",
+      "easing_evidence": "not observable",
+      "trigger": "mouse down",
+      "basis": "EST"
+    },
+    {
+      "t_start": null,
+      "t_end": null,
+      "element": "short-code pill",
+      "property": "background colour",
+      "from": "#0A0A0B",
+      "to": "#F5D451",
+      "duration_ms": 180,
+      "easing": "ease-in-out",
+      "easing_evidence": "selection changes between 30fps frames only",
+      "trigger": "card click",
+      "basis": "EST"
+    }
+  ]
+}

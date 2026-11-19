@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>LatestMajor</RollForward>
+    <!-- The app must run from a plain `dotnet build`/`dotnet publish` on Windows without a
+         separate native copy step: the cimgui native ships inside the ImGui.NET package. -->
+    <UseAppHost>true</UseAppHost>
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>Fluensia</AssemblyName>
+    <RootNamespace>Fluensia</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <ApplicationIcon />
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- keep the output tidy: one exe + a couple of native libs -->
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ImGui.NET" Version="1.91.6.1" />
+    <PackageReference Include="Veldrid" Version="4.9.0" />
+    <PackageReference Include="Veldrid.StartupUtilities" Version="4.9.0" />
+  </ItemGroup>
+
+  <!-- embedded shaders (Veldrid backend needs HLSL/GLSL/SPIR-V/Metal at runtime) -->
+  <ItemGroup>
+    <EmbeddedResource Include="Shaders\hlsl\imgui-vertex.hlsl.bytes" LogicalName="imgui-vertex.hlsl.bytes" />
+    <EmbeddedResource Include="Shaders\hlsl\imgui-frag.hlsl.bytes" LogicalName="imgui-frag.hlsl.bytes" />
+    <EmbeddedResource Include="Shaders\glsl\imgui-vertex.glsl" LogicalName="imgui-vertex.glsl" />
+    <EmbeddedResource Include="Shaders\glsl\imgui-frag.glsl" LogicalName="imgui-frag.glsl" />
+    <EmbeddedResource Include="Shaders\spv\imgui-vertex.spv" LogicalName="imgui-vertex.spv" />
+    <EmbeddedResource Include="Shaders\spv\imgui-frag.spv" LogicalName="imgui-frag.spv" />
+    <EmbeddedResource Include="Shaders\metal\imgui-vertex.metallib" LogicalName="imgui-vertex.metallib" />
+    <EmbeddedResource Include="Shaders\metal\imgui-frag.metallib" LogicalName="imgui-frag.metallib" />
+  </ItemGroup>
+
+  <!-- assets: fonts + generative art, copied next to the exe -->
+  <ItemGroup>
+    <None Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="Assets" />
+    <None Include="analysis\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="analysis" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="analysis\**" />
+  </ItemGroup>
+
+  <!-- cimgui comes from the ImGui.NET NuGet package: runtimes/win-x64/native/cimgui.dll
+       (and libcimgui.so on Linux) are resolved by .NET automatically, so no native copy is needed. -->
+
+</Project>
