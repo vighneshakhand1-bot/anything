@@ -27,14 +27,7 @@ jobs:
           if [ "$status" != "0" ]; then
             # Re-emit compiler diagnostics as workflow commands: those become job annotations, which
             # stay readable through the API even when the raw log blob is unavailable.
-            grep -E ": error [A-Z]+[0-9]+:" build.log | head -50 | while IFS= read -r line; do
-              file=$(echo "$line" | cut -d'(' -f1 | sed 's/^ *//')
-              rest=$(echo "$line" | cut -d'(' -f2-)
-              ln=$(echo "$rest" | cut -d, -f1)
-              msg=$(echo "$line" | sed 's/.*: error [A-Z]*[0-9]*: //')
-              echo "::error file=$file,line=$ln::$msg"
-            done
-            echo "::error::dotnet build failed (see the annotations above)"
+            python3 tools/annotate_errors.py build.log
             exit "$status"
           fi
       - name: Publish (framework-dependent)

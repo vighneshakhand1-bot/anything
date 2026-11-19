@@ -4,6 +4,7 @@ using System.Numerics;
 using Fluensia.Views;
 using ImGuiNET;
 using Veldrid;
+using Fluensia;
 
 namespace Fluensia.Core
 {
