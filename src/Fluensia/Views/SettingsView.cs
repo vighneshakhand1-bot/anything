@@ -64,7 +64,7 @@ namespace Fluensia.Views
             var b = _app.P(content.Right, content.Bottom);
 
             // everything on this screen stays inside the window body
-            dl.PushClipRect(_app.P(_app.Win.Left + _app.SidebarW, _app.Win.Top), _app.P(_app.Win.Right, _app.Win.Bottom), true);
+            dl.PushClipRect(_app.P(_app.Win.Left + App.SidebarW, _app.Win.Top), _app.P(_app.Win.Right, _app.Win.Bottom), true);
 
             // theme surface: dark workspace (or the teal glass when Dark == false)
             var bgTop = Dark ? new Vector4(0.045f, 0.045f, 0.05f, 0.97f) : new Vector4(0.30f, 0.38f, 0.39f, 0.90f);

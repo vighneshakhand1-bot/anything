@@ -298,7 +298,7 @@ namespace Fluensia.Core
             {
                 // solid stem pattern keyed off the codepoint: distinct enough to read word shape,
                 // while the advance (not the ink) drives every measurement in the UI
-                int seed = (ch * 2654435761u) % 7;
+                int seed = (int)(ch * 2654435761u % 7);
                 for (int x = 0; x < w; x++)
                     for (int y = 0; y < h; y++)
                     {

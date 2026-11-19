@@ -259,10 +259,11 @@ namespace Fluensia
             cl.End();
             gd.SubmitCommands(cl);
             gd.WaitForIdle();
-            var map = gd.Map<byte>(tex);
-            // row-wise copy honouring RowPitch
+            // Map<T> needs an explicit MapMode; Data/RowPitch live on the inner MappedResource
+            var map = gd.Map<byte>(tex, MapMode.Read);
+            var raw = map.MappedResource;
             for (int y = 0; y < h; y++)
-                System.Runtime.InteropServices.Marshal.Copy(IntPtr.Add(map.Data, (int)(y * map.RowPitch)), rgba, y * (int)w * 4, (int)w * 4);
+                System.Runtime.InteropServices.Marshal.Copy(IntPtr.Add(raw.Data, (int)(y * raw.RowPitch)), rgba, y * (int)w * 4, (int)w * 4);
             gd.Unmap(tex);
             tex.Dispose();
             // BGRA -> RGBA for the PNG encoder
