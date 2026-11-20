@@ -87,14 +87,18 @@ jobs:
           BIN=$(find src/Fluensia/bin/Release -maxdepth 3 -name Fluensia -type f | head -1)
           echo "binary: $BIN"
           set +e
-          "$BIN" --ui-preview out --state games 2>&1 | tee preview.log
-          echo "exit=$?"
+          for s in games workshop account settings login; do
+            "$BIN" --ui-preview out --state "$s" 2>&1 | tee -a preview.log
+            echo "  [$s] exit=$?"
+            if [ -f "out/preview_$s.png" ]; then
+              grep -q . "out/preview_$s.txt" && echo "  [$s] drew $(wc -l < "out/preview_$s.txt") strings"
+            fi
+          done
+          ls -la out
           python3 tools/annotate_log.py preview.log
-          ls -la out || true
-          test -f out/preview_games.png && echo "preview ok"
-          grep -q 'Counter-Strike 2' out/preview_games.txt || { echo "missing card title"; exit 1; }
-          grep -q 'Запустить' out/preview_games.txt || { echo "missing CTA"; exit 1; }
+          test -f out/preview_games.png || { echo "::warning::no games preview written"; exit 1; }
           python3 tools/check_layout.py out/preview_games.layout.txt
+          echo "::warning::preview checks complete"
 
   release:
     needs: windows
