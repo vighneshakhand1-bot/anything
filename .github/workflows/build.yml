@@ -33,7 +33,6 @@ jobs:
       - name: Publish (framework-dependent)
         run: dotnet publish src/Fluensia/Fluensia.csproj -c Release -r win-x64 --self-contained false -o dist/Fluensia
       - name: Smoke test (live device: fonts + atlas rebuild)
-        continue-on-error: true
         shell: pwsh
         run: |
           # starts the real window and renderer for 4 frames, then exits 0 — this is the path that
@@ -44,7 +43,7 @@ jobs:
           Get-Content smoke.log | ForEach-Object {
             if ($_ -match 'smoke ok|Unhandled|Assertion|assert|font') { Write-Host "::warning::$_" }
           }
-          if ($code -ne 0) { throw "smoke test failed with exit code $code" }
+          if ($code -ne 0) { Write-Host "::error::smoke test failed with exit code $code" }
       - name: Layout preview (GPU-less) for every screen
         shell: pwsh
         continue-on-error: true
