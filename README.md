@@ -25,6 +25,16 @@ and Linux because it covers the two ImGui font-atlas asserts that used to abort 
 * *"Could not load font file!"* — fonts were loaded after the atlas was locked (`NewFrame()`),
 * *"Cannot modify a locked ImFontAtlas"* — the atlas was rebuilt between `NewFrame()`/`EndFrame()`.
 
+
+### Troubleshooting
+
+| Symptom | Cause | Fixed by |
+| --- | --- | --- |
+| MSVC box: `Assertion failed … "Could not load font file!"` (`imgui_draw.cpp`, `AddFontFromFileTTF`) | fonts were added after `ImGui.NewFrame()`, which locks the atlas — and the `.ttf` files were looked up as loose files next to the exe | fonts are **embedded resources**, loaded once before the first frame |
+| MSVC box: `… "Cannot modify a locked ImFontAtlas between NewFrame() and EndFrame/Render()!"` | the atlas was rebuilt on a DPI change inside the frame | rebuilds are queued and run between `Render()` and `NewFrame()` |
+| Art is flat/untextured | `.flut` container could not be decoded by .NET's `DeflateStream` | art ships as palette `.png`, decoded in-process |
+| Nothing happens on launch | a crashed `WinExe` has no console | `fluensia.log` next to the exe, plus `--smoke` |
+
 ## Build
 
 Windows (manual, as requested):
