@@ -57,6 +57,7 @@ namespace Fluensia.Core
         /// </summary>
         /// <summary>Linear+aniso sampler: ImGui's default point sampler makes scaled text/images aliased.</summary>
         private Sampler _linearSampler;
+        private Sampler _fontSampler;
 
         public ImGuiController(GraphicsDevice gd, OutputDescription outputDescription, int width, int height)
         {
@@ -73,8 +74,28 @@ namespace Fluensia.Core
 
             CreateDeviceResources(gd, outputDescription);
             SetPerFrameImGuiData(1f / 60f);
-            ImGui.NewFrame();
+            // NOTE: no ImGui.NewFrame() here. NewFrame() *locks* the font atlas, so fonts must be
+            // added before the first frame begins (see BeginFrame). Starting the frame here used to
+            // abort at runtime: "Cannot modify a locked ImFontAtlas between NewFrame() and EndFrame".
+        }
+
+        /// <summary>
+        /// Invoked exactly between ImGui.Render() and ImGui.NewFrame(), which is the only window in
+        /// which the font atlas is unlocked. Rebuilding fonts anywhere else trips ImGui's assert.
+        /// </summary>
+        public Action BetweenFrames;
+
+        private bool _fontRebuildPending;
+
+        /// <summary>Ask for the atlas to be rebuilt on the next frame boundary (after a DPI change).</summary>
+        public void RequestFontRebuild() => _fontRebuildPending = true;
+
+        /// <summary>Starts the very first frame once the app has added its fonts. Idempotent.</summary>
+        public void BeginFrame()
+        {
+            if (_frameBegun) return;
             _frameBegun = true;
+            ImGui.NewFrame();
         }
 
         public void WindowResized(int width, int height)
@@ -137,17 +158,7 @@ namespace Fluensia.Core
                 ResourceBindingModel.Default);
             _pipeline = factory.CreateGraphicsPipeline(ref pd);
 
-            _linearSampler = factory.CreateSampler(new SamplerDescription(
-                SamplerAddressMode.Clamp,
-                SamplerAddressMode.Clamp,
-                SamplerAddressMode.Clamp,
-                SamplerFilter.Anisotropic,
-                null,
-                16,
-                0,
-                1000,
-                0,
-                SamplerBorderColor.TransparentBlack));
+            _linearSampler = factory.CreateSampler(LinearDesc());
 
             _mainResourceSet = factory.CreateResourceSet(new ResourceSetDescription(_layout,
                 _projMatrixBuffer,
@@ -155,6 +166,24 @@ namespace Fluensia.Core
 
             _fontTextureResourceSet = factory.CreateResourceSet(new ResourceSetDescription(_textureLayout, _fontTextureView));
         }
+
+        /// <summary>
+        /// Text must never be point-sampled: the atlas is baked at DPI*scale density and drawn at
+        /// fractional sizes, so a point/nearest filter would alias every glyph edge.
+        /// </summary>
+        private static SamplerDescription LinearDesc() => new SamplerDescription(
+            SamplerAddressMode.Clamp,
+            SamplerAddressMode.Clamp,
+            SamplerAddressMode.Clamp,
+            SamplerFilter.Anisotropic,
+            null,
+            16,
+            0,
+            1000,
+            0,
+            SamplerBorderColor.TransparentBlack);
+
+        private Sampler CreateFontSampler(GraphicsDevice gd) => gd.ResourceFactory.CreateSampler(LinearDesc());
 
         /// <summary>
         /// Gets or creates a handle for a texture to be drawn with ImGui.
@@ -274,9 +303,16 @@ namespace Fluensia.Core
             IntPtr pixels;
             int width, height, bytesPerPixel;
             io.Fonts.GetTexDataAsRGBA32(out pixels, out width, out height, out bytesPerPixel);
+            if (pixels == IntPtr.Zero || width <= 0 || height <= 0)
+            {
+                // empty atlas: nothing to upload yet, retry after the fonts are (re)built
+                io.Fonts.SetTexID(IntPtr.Zero);
+                return;
+            }
             // Store our identifier
             io.Fonts.SetTexID(_fontAtlasID);
 
+            _fontTexture?.Dispose();
             _fontTexture = gd.ResourceFactory.CreateTexture(TextureDescription.Texture2D(
                 (uint)width,
                 (uint)height,
@@ -297,7 +333,18 @@ namespace Fluensia.Core
                 1,
                 0,
                 0);
+            _fontTextureView?.Dispose();
             _fontTextureView = gd.ResourceFactory.CreateTextureView(_fontTexture);
+            // the resource set and the sampler both point at the old view: refresh them
+            _fontTextureResourceSet?.Dispose();
+            _fontTextureResourceSet = gd.ResourceFactory.CreateResourceSet(
+                new ResourceSetDescription(_textureLayout, _fontTextureView));
+            _fontSampler?.Dispose();
+            _fontSampler = CreateFontSampler(gd);
+            _mainResourceSet?.Dispose();
+            _mainResourceSet = gd.ResourceFactory.CreateResourceSet(new ResourceSetDescription(_layout,
+                _projMatrixBuffer,
+                _fontSampler ?? _linearSampler));
 
             io.Fonts.ClearTexData();
         }
@@ -325,7 +372,18 @@ namespace Fluensia.Core
         {
             if (_frameBegun)
             {
-                ImGui.Render();
+                ImGui.Render();   // also calls EndFrame(), which unlocks the font atlas
+            }
+
+            if (_fontRebuildPending)
+            {
+                _fontRebuildPending = false;
+                var rebuild = BetweenFrames;
+                if (rebuild != null)
+                {
+                    try { rebuild(); }
+                    catch (Exception ex) { Console.Error.WriteLine("font rebuild failed: " + ex); }
+                }
             }
 
             SetPerFrameImGuiData(deltaSeconds);
@@ -550,14 +608,16 @@ namespace Fluensia.Core
             _vertexBuffer.Dispose();
             _indexBuffer.Dispose();
             _projMatrixBuffer.Dispose();
-            _fontTexture.Dispose();
-            _fontTextureView.Dispose();
+            _fontTexture?.Dispose();
+            _fontTextureView?.Dispose();
+            if (_fontTextureResourceSet != null) { _fontTextureResourceSet.Dispose(); _fontTextureResourceSet = null; }
+            if (_fontSampler != null) { _fontSampler.Dispose(); _fontSampler = null; }
             _vertexShader.Dispose();
             _fragmentShader.Dispose();
             _layout.Dispose();
             _textureLayout.Dispose();
             _pipeline.Dispose();
-            _mainResourceSet.Dispose();
+            if (_mainResourceSet != null) { _mainResourceSet.Dispose(); _mainResourceSet = null; }
             if (_linearSampler != null) { _linearSampler.Dispose(); _linearSampler = null; }
 
             foreach (IDisposable resource in _ownedResources)

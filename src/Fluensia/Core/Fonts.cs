@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
@@ -19,6 +19,9 @@ namespace Fluensia.Core
 
         private readonly Dictionary<string, Vector2> _cache = new();
 
+        /// <summary>False when the atlas could not supply this face (then we draw with the default font).</summary>
+        public bool Loaded => Ptr.NativePtr != IntPtr.Zero;
+
         /// <summary>On-screen glyph size in framebuffer px (the size ImGui needs at draw time).</summary>
         public float DrawSize => Size * Program.Scale;
 
@@ -27,6 +30,7 @@ namespace Fluensia.Core
             if (string.IsNullOrEmpty(s)) return Vector2.Zero;
             if (_cache.TryGetValue(s, out var v)) return v;
             if (Ui.Rec != null) { var g = Ui.Rec.Glyph.Measure(s, DrawSize); _cache[s] = g; return g; }
+            if (!Loaded) return new Vector2(s.Length * DrawSize * 0.5f, DrawSize);
             var size = Ptr.CalcTextSizeA(DrawSize, float.MaxValue, -1f, s);
             _cache[s] = size;
             return size;
@@ -92,11 +96,16 @@ namespace Fluensia.Core
 
         public Fonts(string assetsDir, float dpiScale)
         {
+            // Fonts are embedded in the assembly (see Fluensia.csproj), so the exe works from any
+            // directory, a zip, or a single-file publish without the Assets folder next to it.
             _dir = Path.Combine(assetsDir, "fonts");
             Density = Math.Clamp(dpiScale, 1f, 3f);
             Ladder(ImGui.GetIO().Fonts.GetGlyphRangesCyrillic());
             ImGui.GetIO().Fonts.Flags |= ImFontAtlasFlags.NoBakedLines;
         }
+
+        /// <summary>True when at least one face loaded; lets the caller fall back to the default font.</summary>
+        public bool AnyLoaded { get; private set; }
 
         private void Ladder(IntPtr ranges)
         {
@@ -126,11 +135,54 @@ namespace Fluensia.Core
             cfgPtr.PixelSnapH = false;
             cfgPtr.RasterizerDensity = Density;
             cfgPtr.GlyphMinAdvanceX = 0;
-            var path = Path.Combine(_dir, file);
-            var ptr = ImGui.GetIO().Fonts.AddFontFromFileTTF(path, linePx, cfgPtr, ranges);
+            var data = ReadFace(file);
+            if (data == null || data.Length < 100)
+            {
+                // Never hand ImGui a missing path: AddFontFromFileTTF asserts ("Could not load font
+                // file!") and the native assert box would kill the process. Skip the face instead and
+                // let the text helpers fall back to the default font.
+                var onDisk = Path.Combine(_dir, file);
+                if (!File.Exists(onDisk))
+                {
+                    Console.Error.WriteLine("font unavailable (embedded + disk): " + file);
+                    return new Font { Size = linePx, Density = Density };
+                }
+                data = File.ReadAllBytes(onDisk);
+            }
+            // The atlas takes ownership of the buffer (FontDataOwnedByAtlas) and frees it after
+            // Build(), so it must be unmanaged: a pinned managed array would be released by the
+            // GC while ImGui still frees it. One small buffer per face, freed once by the atlas.
+            var native = System.Runtime.InteropServices.Marshal.AllocHGlobal(data.Length);
+            System.Runtime.InteropServices.Marshal.Copy(data, 0, native, data.Length);
+            var ptr = ImGui.GetIO().Fonts.AddFontFromMemoryTTF(native, data.Length, linePx, cfgPtr, ranges);
+            if (ptr.NativePtr == IntPtr.Zero)
+            {
+                Console.Error.WriteLine("font failed to load: " + file);
+                return new Font { Size = linePx, Density = Density };
+            }
+            AnyLoaded = true;
             var font = new Font { Ptr = ptr, Size = linePx, Density = Density };
             _all.Add(font);
             return font;
+        }
+
+        /// <summary>Reads one Inter face from the embedded resources (or disk as a last resort).</summary>
+        private static byte[] ReadFace(string file)
+        {
+            var asm = typeof(Fonts).Assembly;
+            using (var stream = asm.GetManifestResourceStream("Fonts." + file))
+            {
+                if (stream == null) return null;
+                var bytes = new byte[stream.Length];
+                int read = 0;
+                while (read < bytes.Length)
+                {
+                    int n = stream.Read(bytes, read, bytes.Length - read);
+                    if (n <= 0) break;
+                    read += n;
+                }
+                return bytes;
+            }
         }
 
         /// <summary>Drops every cached string measurement (call when the window scale changes).</summary>

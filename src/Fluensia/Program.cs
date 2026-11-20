@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Numerics;
 using Fluensia.Core;
@@ -22,6 +22,12 @@ namespace Fluensia
         public static ImGuiController Controller;
         public static App App;
 
+        /// <summary>Working directory the app was launched from (stable even for single-file publish).</summary>
+        public static string BaseDir = AppContext.BaseDirectory;
+
+        /// <summary>Where assets and the log live: next to the exe, whatever the publish layout.</summary>
+        public static string AssetDir => BaseDir;
+
         public static float Scale = 1f;          // window px per design px
         public static float UiScale = 1f;        // DPI x Scale, known before the font atlas exists
         public static Vector2 Offset;            // top-left of the design rect inside the window
@@ -30,6 +36,7 @@ namespace Fluensia
 
         private static void Main(string[] args)
         {
+            InstallCrashLog();
             // ---- headless snapshot mode: renders N frames into PNGs (used by tools/snapshot.py)
             string shotDir = null;
             string shotState = "games";
@@ -37,6 +44,7 @@ namespace Fluensia
             float shotT = 0f;
             bool autoplay = true;
             string previewDir = null;
+            bool smoke = false;
             for (int i = 0; i < args.Length; i++)
             {
                 switch (args[i])
@@ -47,6 +55,7 @@ namespace Fluensia
                     case "--frames": shotFrames = int.Parse(args[++i]); break;
                     case "--time": shotT = float.Parse(args[++i], System.Globalization.CultureInfo.InvariantCulture); break;
                     case "--no-autoplay": autoplay = false; break;
+                    case "--smoke": smoke = true; break;
                 }
             }
 
@@ -97,6 +106,24 @@ namespace Fluensia
             Ui.Dt = 1f / 60f;
             if (shotDir != null) Ui.Layout = new System.Collections.Generic.List<string>();
 
+            // ---- fonts first, then the first frame. ImGui.NewFrame() locks the font atlas, so any
+            // AddFontFrom* after it trips "Cannot modify a locked ImFontAtlas".
+            UiScale = Scale * Dpi;
+            var fonts = new Fonts(AssetDir, UiScale);
+            if (!fonts.AnyLoaded)
+            {
+                Console.Error.WriteLine("no embedded Inter face found - falling back to the default font");
+                ImGui.GetIO().Fonts.AddFontDefault();
+            }
+            Console.WriteLine($"fonts: {ImGui.GetIO().Fonts.Fonts.Size} faces, density {fonts.Density:0.###}");
+            fonts.Build();
+            Controller.RecreateFontDeviceTexture(Gd);
+            App = new App();
+            App.Init(fonts);
+            _fontScale = UiScale;
+            Controller.BeginFrame();
+            if (shotDir != null) App.PlayState(shotState, shotT);
+
             var sw = Stopwatch.StartNew();
             double last = 0;
             int frame = 0;
@@ -122,27 +149,26 @@ namespace Fluensia
                 ImGui.GetIO().DeltaTime = Math.Max(dt, 1e-4f);
                 Controller.Update(dt, shotDir == null ? snapshot : null);
 
-                if (initialised && Math.Abs(UiScale - _fontScale) > 0.02f && shotDir == null)
+                // A scale/DPI change needs a fresh atlas, and the atlas is only unlocked between
+                // ImGui.Render() and ImGui.NewFrame() — so the rebuild is queued for that boundary.
+                if (Math.Abs(UiScale - _fontScale) > 0.25f && shotDir == null)
                 {
-                    _fontScale = UiScale;
-                    App.F.InvalidateMeasurements();      // cached string sizes depend on Program.Scale
-                    App.F = new Fonts(AppContext.BaseDirectory, UiScale);
-                    App.F.Build();
-                    Controller.RecreateFontDeviceTexture(Gd);
+                    float target = UiScale;
+                    Controller.BetweenFrames = () =>
+                    {
+                        var rebuilt = new Fonts(AssetDir, target);
+                        if (!rebuilt.AnyLoaded) return;
+                        App.F?.InvalidateMeasurements();
+                        rebuilt.Build();
+                        Controller.RecreateFontDeviceTexture(Gd);
+                        App.F = rebuilt;
+                        _fontScale = target;
+                        Console.WriteLine($"fonts rebuilt at density {target:0.##}");
+                    };
+                    Controller.RequestFontRebuild();
+                    _fontScale = target;
                 }
-
-                if (!initialised)
-                {
-                    // fonts + art need a live ImGui context and device, so they come after the first frame begins
-                    App = new App();
-                    var fonts = new Fonts(AppContext.BaseDirectory, UiScale);
-                    fonts.Build();
-                    App.Init(fonts);
-                    _fontScale = UiScale;
-                    Controller.RecreateFontDeviceTexture(Gd);
-                    if (shotDir != null) App.PlayState(shotState, shotT);
-                    initialised = true;
-                }
+                initialised = true;
 
                 ImGui.SetNextWindowPos(Vector2.Zero);
                 ImGui.SetNextWindowSize(new Vector2(w, h));
@@ -164,6 +190,18 @@ namespace Fluensia
                 Gd.SubmitCommands(Cl);
                 Gd.SwapBuffers();
 
+                if (smoke)
+                {
+                    frame++;
+                    // frame 2: force the atlas-rebuild path (the assert #2634 trap) on a live device
+                    if (frame == 2) { Controller.BetweenFrames = () => { }; Controller.RequestFontRebuild(); }
+                    if (frame >= 4)
+                    {
+                        Console.WriteLine($"smoke ok: {frame} frames, atlas {ImGui.GetIO().Fonts.TexWidth}x{ImGui.GetIO().Fonts.TexHeight}, {ImGui.GetIO().Fonts.Fonts.Size} faces");
+                        return;
+                    }
+                }
+
                 if (shotDir != null)
                 {
                     Snapshot.Png(Gd.MainSwapchain.Framebuffer, System.IO.Path.Combine(shotDir, $"f{frame:000}.png"));
@@ -179,6 +217,34 @@ namespace Fluensia
         }
 
         public static int shotW = (int)(DesignW * 2), shotH = (int)(DesignH * 2);
+
+        /// <summary>
+        /// Routes unhandled exceptions to fluensia.log next to the exe and (on Windows) keeps a
+        /// console around so the user sees why the app stopped instead of a bare MSVC assert box.
+        /// </summary>
+        private static void InstallCrashLog()
+        {
+            try
+            {
+                if (Platform.IsWindows) Platform.AttachConsole();
+                var log = System.IO.Path.Combine(BaseDir, "fluensia.log");
+                System.IO.File.WriteAllText(log, "Fluensia " + typeof(Program).Assembly.GetName().Version + Environment.NewLine);
+                AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+                {
+                    try { System.IO.File.AppendAllText(log, Environment.NewLine + e.ExceptionObject); } catch { }
+                    Console.Error.WriteLine(e.ExceptionObject);
+                };
+                AppDomain.CurrentDomain.FirstChanceException += (_, e) =>
+                {
+                    if (e.Exception is System.NullReferenceException || e.Exception is System.DllNotFoundException ||
+                        e.Exception is System.IO.FileNotFoundException || e.Exception is TypeInitializationException)
+                    {
+                        try { System.IO.File.AppendAllText(log, "[first chance] " + e.Exception.GetType().Name + ": " + e.Exception.Message + Environment.NewLine); } catch { }
+                    }
+                };
+            }
+            catch { }
+        }
 
         /// <summary>
         /// GPU-less layout preview: builds the same widget tree with the software canvas mirroring

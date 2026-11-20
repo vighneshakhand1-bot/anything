@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 
 namespace Fluensia.Core
@@ -43,7 +43,41 @@ namespace Fluensia.Core
             return 1f;
         }
 
-        // ---------------------------------------------------------------- acrylic / blur
+        // ---------------------------------------------------------------- console (diagnostics)
+        [StructLayout(LayoutKind.Sequential)]
+        private struct COORD { public short X; public short Y; }
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern bool AttachConsoleWin(uint processId);
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern IntPtr GetStdHandle(int handle);
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern bool AllocConsole();
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern bool SetConsoleScreenBufferSize(IntPtr h, COORD size);
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern bool FreeConsole();
+        private const int StdOutputHandle = -11;
+        private const uint AttachParentProcess = 0xFFFFFFFF;
+
+        /// <summary>
+        /// A WinExe has no console, so an unhandled error would vanish (or pop an MSVC assert box).
+        /// Attach to the launching shell when there is one, otherwise open a console, then rebind
+        /// Console.Out so every diagnostic lands there as well as in fluensia.log.
+        /// </summary>
+        public static void AttachConsole()
+        {
+            if (!IsWindows || _consoleReady) return;
+            try
+            {
+                if (!AttachConsoleWin(AttachParentProcess)) AllocConsole();
+                SetConsoleScreenBufferSize(GetStdHandle(StdOutputHandle), new COORD { X = 200, Y = 4000 });
+                var stdout = Console.OpenStandardOutput();
+                var writer = new System.IO.StreamWriter(stdout) { AutoFlush = true };
+                Console.SetOut(writer);
+                Console.SetError(writer);
+                _consoleReady = true;
+            }
+            catch { /* headless CI: no console, the log file still works */ }
+        }
+
+        private static bool _consoleReady;
+
+        // ---------------------------------------------------------------- Acrylic / blur
         [StructLayout(LayoutKind.Sequential)]
         private struct AccentPolicy { public int State; public int Flags; public int Color; public int Animation; }
         [StructLayout(LayoutKind.Sequential)]

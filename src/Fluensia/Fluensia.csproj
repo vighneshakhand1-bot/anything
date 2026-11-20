@@ -40,7 +40,12 @@
     <EmbeddedResource Include="Shaders\metal\imgui-frag.metallib" LogicalName="imgui-frag.metallib" />
   </ItemGroup>
 
-  <!-- assets: fonts + generative art, copied next to the exe -->
+  <!-- fonts are embedded so the exe never depends on the Assets folder being present -->
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Fonts\*.ttf" LogicalName="Fonts.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- assets: generative art, copied next to the exe -->
   <ItemGroup>
     <None Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="Assets" />
     <None Include="analysis\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="analysis" />

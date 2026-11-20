@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
 using ImGuiNET;
@@ -200,7 +200,8 @@ namespace Fluensia.Core
             var at = Snap(pos);
             Log("text", at, at + f.Measure(s), s.Replace(' ', '_'));
             if (Rec != null) { Rec.Text(at, f.DrawSize, Palette.U32(col, alpha), s); return new Vector2(pos.X + f.Measure(s).X, pos.Y); }
-            dl.AddText(f.Ptr, f.DrawSize, at, Palette.U32(col, alpha), s);
+            if (f.Loaded) dl.AddText(f.Ptr, f.DrawSize, at, Palette.U32(col, alpha), s);
+            else dl.AddText(at, Palette.U32(col, alpha), s);   // last-resort default font
             return new Vector2(pos.X + f.Measure(s).X, pos.Y);
         }
 
@@ -211,7 +212,8 @@ namespace Fluensia.Core
             if (!string.IsNullOrEmpty(s))
             {
                 if (Rec != null) Rec.Text(Snap(p), f.DrawSize, Palette.U32(col, alpha), s);
-                else dl.AddText(f.Ptr, f.DrawSize, Snap(p), Palette.U32(col, alpha), s);
+                else if (f.Loaded) dl.AddText(f.Ptr, f.DrawSize, Snap(p), Palette.U32(col, alpha), s);
+                else dl.AddText(Snap(p), Palette.U32(col, alpha), s);
             }
             return p;
         }
@@ -227,7 +229,8 @@ namespace Fluensia.Core
             var size = f.DrawSize * k;
             var p = new Vector2(center.X - w * k * 0.5f, center.Y - f.Size * k * 0.5f);
             if (Rec != null) Rec.Text(Snap(p), size, Palette.U32(col, alpha), s);
-            else dl.AddText(f.Ptr, size, Snap(p), Palette.U32(col, alpha), s);
+            else if (f.Loaded) dl.AddText(f.Ptr, size, Snap(p), Palette.U32(col, alpha), s);
+            else dl.AddText(Snap(p), Palette.U32(col, alpha), s);
             return p;
         }
 
@@ -238,7 +241,8 @@ namespace Fluensia.Core
             if (!string.IsNullOrEmpty(s))
             {
                 if (Rec != null) Rec.Text(Snap(p), f.DrawSize, Palette.U32(col, alpha), s);
-                else dl.AddText(f.Ptr, f.DrawSize, Snap(p), Palette.U32(col, alpha), s);
+                else if (f.Loaded) dl.AddText(f.Ptr, f.DrawSize, Snap(p), Palette.U32(col, alpha), s);
+                else dl.AddText(Snap(p), Palette.U32(col, alpha), s);
             }
             return p;
         }
