@@ -191,8 +191,8 @@ namespace Fluensia
             Scale = s; UiScale = s; Offset = Vector2.Zero;
             ImGui.CreateContext();
             var io = ImGui.GetIO();
-            // ImGui asserts unless the platform backend fills these in
-            io.BackendPlatformName = "fluensia-preview";
+            // ImGui fills in DisplaySize/DeltaTime from the backend; in preview mode we are the backend.
+            // (BackendPlatformName is read-only in ImGui.NET, so it stays empty — ImGui only warns.)
             io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
             io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
             io.DisplaySize = new Vector2(DesignW, DesignH);
