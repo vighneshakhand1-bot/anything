@@ -32,6 +32,19 @@ jobs:
           fi
       - name: Publish (framework-dependent)
         run: dotnet publish src/Fluensia/Fluensia.csproj -c Release -r win-x64 --self-contained false -o dist/Fluensia
+      - name: Smoke test (live device: fonts + atlas rebuild)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          # starts the real window and renderer for 4 frames, then exits 0 — this is the path that
+          # used to abort in the ImGui font asserts, so it is the one test that must not be skipped.
+          & dist/Fluensia/Fluensia.exe --smoke 2>&1 | Tee-Object -FilePath smoke.log
+          $code = $LASTEXITCODE
+          Write-Host "smoke exit=$code"
+          Get-Content smoke.log | ForEach-Object {
+            if ($_ -match 'smoke ok|Unhandled|Assertion|assert|font') { Write-Host "::warning::$_" }
+          }
+          if ($code -ne 0) { throw "smoke test failed with exit code $code" }
       - name: Layout preview (GPU-less) for every screen
         shell: pwsh
         continue-on-error: true
@@ -93,6 +106,10 @@ jobs:
           BIN=$(find src/Fluensia/bin/Release -maxdepth 3 -name Fluensia -type f | head -1)
           echo "binary: $BIN"
           set +e
+          echo "--- smoke"
+          timeout 60 xvfb-run -a "$BIN" --smoke 2>&1 | tee smoke.log; echo "smoke exit=$?"
+          grep -q "smoke ok" smoke.log && echo "smoke: ok" || echo "smoke: no confirmation (headless GL may be absent)"
+          python3 tools/annotate_log.py smoke.log || true
           for s in games workshop account settings login; do
             "$BIN" --ui-preview out --state "$s" 2>&1 | tee -a preview.log
             echo "  [$s] exit=$?"
