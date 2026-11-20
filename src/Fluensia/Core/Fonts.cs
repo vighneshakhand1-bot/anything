@@ -20,7 +20,7 @@ namespace Fluensia.Core
         private readonly Dictionary<string, Vector2> _cache = new();
 
         /// <summary>False when the atlas could not supply this face (then we draw with the default font).</summary>
-        public bool Loaded => Ptr.NativePtr != null;   // ImFontPtr.NativePtr is ImFont*
+        public unsafe bool Loaded => Ptr.NativePtr != null;   // ImFontPtr.NativePtr is ImFont*
 
         /// <summary>On-screen glyph size in framebuffer px (the size ImGui needs at draw time).</summary>
         public float DrawSize => Size * Program.Scale;
