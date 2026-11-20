@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -42,16 +42,16 @@ namespace Fluensia.Core
         {
             _bind = bind;
             var dir = Path.Combine(baseDir, "Assets");
-            Wall = Get(dir, "wall.flut");
-            ArtCs2 = Get(dir, "art_cs2.flut");
-            ArtValorant = Get(dir, "art_valorant.flut");
-            ArtDota = Get(dir, "art_dota.flut");
-            ArtCod = Get(dir, "art_cod.flut");
-            AvIsadora = Get(dir, "av_isadora.flut");
-            AvHimto = Get(dir, "av_himto.flut");
-            AvMagical = Get(dir, "av_magical.flut");
-            AvKayn = Get(dir, "av_kayn.flut");
-            AvCatgirl = Get(dir, "av_catgirl.flut");
+            Wall = Get(dir, "wall.png");
+            ArtCs2 = Get(dir, "art_cs2.png");
+            ArtValorant = Get(dir, "art_valorant.png");
+            ArtDota = Get(dir, "art_dota.png");
+            ArtCod = Get(dir, "art_cod.png");
+            AvIsadora = Get(dir, "av_isadora.png");
+            AvHimto = Get(dir, "av_himto.png");
+            AvMagical = Get(dir, "av_magical.png");
+            AvKayn = Get(dir, "av_kayn.png");
+            AvCatgirl = Get(dir, "av_catgirl.png");
         }
 
         public Tex Get(string dir, string file)
@@ -63,7 +63,7 @@ namespace Fluensia.Core
             {
                 try
                 {
-                    var img = file.EndsWith(".flut", StringComparison.OrdinalIgnoreCase) ? Flut.Decode(path) : Png.Decode(path);
+                    var img = Png.Decode(path);
                     tex = Upload(img.Rgba, img.Width, img.Height);
                 }
                 catch (Exception ex)
@@ -105,42 +105,8 @@ namespace Fluensia.Core
         //  .flut: our tiny container — "FLU1", u8 version, u16 w, u16 h, 768-byte palette, deflate indices.
         //  Keeps 10 bitmap assets at ~2.1 MB instead of ~9 MB of PNGs, and decodes in a few ms.
         // ---------------------------------------------------------------------------------------
-        public static class Flut
-        {
-            public static Png.Image Decode(string path)
-            {
-                using var fs = File.OpenRead(path);
-                var head = new byte[12];
-                fs.ReadExactly(head, 0, 10);
-                if (head[0] != 'F' || head[1] != 'L' || head[2] != 'U' || head[3] != '1')
-                    throw new InvalidDataException("not a .flut file");
-                int w = head[4] | (head[5] << 8);
-                int h = head[6] | (head[7] << 8);
-                var pal = new byte[768];   // 12-byte header + 768-byte palette = 780, stream starts at 780
-                using var inflater = new DeflateStream(fs, CompressionMode.Decompress);
-                var idx = new byte[w * h];
-                int read = 0;
-                while (read < idx.Length)
-                {
-                    int r = inflater.Read(idx, read, idx.Length - read);
-                    if (r <= 0) break;
-                    read += r;
-                }
-                var rgba = new byte[w * h * 4];
-                for (int i = 0, d = 0; i < idx.Length; i++, d += 4)
-                {
-                    int p = idx[i] * 3;
-                    rgba[d] = pal[p];
-                    rgba[d + 1] = pal[p + 1];
-                    rgba[d + 2] = pal[p + 2];
-                    rgba[d + 3] = 255;
-                }
-                return new Png.Image { Width = w, Height = h, Rgba = rgba };
-            }
-        }
-
         // ---------------------------------------------------------------------------------------
-        //  minimal PNG decoder: 8-bit, RGB/RGBA/gray, non-interlaced (all bundled assets)
+        //  PNG decoder: 8-bit, gray / RGB / palette / gray+alpha / RGBA, non-interlaced
         // ---------------------------------------------------------------------------------------
         public static class Png
         {
@@ -159,6 +125,7 @@ namespace Fluensia.Core
                 if (sig[1] != 'P' || sig[2] != 'N' || sig[3] != 'G') throw new InvalidDataException("not a PNG");
 
                 int w = 0, h = 0, bitDepth = 8, colorType = 6;
+                byte[] palette = null;
                 var idat = new MemoryStream();
                 var buf = new byte[4];
                 while (true)
@@ -179,11 +146,13 @@ namespace Fluensia.Core
                         colorType = data[9];
                         if (data[12] != 0) throw new NotSupportedException("interlaced PNG");
                     }
+                    else if (ts == "PLTE") palette = data;
                     else if (ts == "IDAT") idat.Write(data, 0, data.Length);
                     else if (ts == "IEND") break;
                 }
                 if (bitDepth != 8) throw new NotSupportedException("bit depth " + bitDepth);
-                int channels = colorType switch { 0 => 1, 2 => 3, 4 => 2, 6 => 4, _ => throw new NotSupportedException("color type " + colorType) };
+                if (colorType == 3 && (palette == null || palette.Length < 3)) throw new InvalidDataException("palette PNG without PLTE");
+                int channels = colorType switch { 0 => 1, 2 => 3, 3 => 1, 4 => 2, 6 => 4, _ => throw new NotSupportedException("color type " + colorType) };
 
                 idat.Position = 2; // skip the zlib header, DeflateStream handles raw deflate
                 using var inflater = new DeflateStream(idat, CompressionMode.Decompress);
@@ -197,6 +166,8 @@ namespace Fluensia.Core
                     read += r;
                 }
 
+                // filter units are in bytes; a palette index is one byte per pixel
+                int bpp = Math.Max(1, channels);
                 var px = new byte[stride * h];
                 int prevRow = -1;
                 for (int y = 0; y < h; y++)
@@ -206,9 +177,9 @@ namespace Fluensia.Core
                     int dst = y * stride;
                     for (int x = 0; x < stride; x++)
                     {
-                        int a = x >= channels ? px[dst + x - channels] : 0;
+                        int a = x >= bpp ? px[dst + x - bpp] : 0;
                         int b = prevRow >= 0 ? px[prevRow + x] : 0;
-                        int c = (x >= channels && prevRow >= 0) ? px[prevRow + x - channels] : 0;
+                        int c = (x >= bpp && prevRow >= 0) ? px[prevRow + x - bpp] : 0;
                         int v = raw[src + x];
                         switch (ft)
                         {
@@ -233,6 +204,12 @@ namespace Fluensia.Core
                 var rgba = new byte[w * h * 4];
                 for (int i = 0, s = 0, d = 0; i < w * h; i++, s += channels, d += 4)
                 {
+                    if (colorType == 3)   // palette indices, expanded through PLTE
+                    {
+                        int pi = px[s] * 3;
+                        rgba[d] = palette[pi]; rgba[d + 1] = palette[pi + 1]; rgba[d + 2] = palette[pi + 2]; rgba[d + 3] = 255;
+                        continue;
+                    }
                     switch (channels)
                     {
                         case 4:
