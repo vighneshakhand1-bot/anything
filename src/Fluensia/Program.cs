@@ -205,8 +205,16 @@ namespace Fluensia
             Ui.Rec = new UiRecorder((int)(DesignW * s), (int)(DesignH * s), s, new Glyphs());
             Ui.Layout = new System.Collections.Generic.List<string>();
             App = new App();
-            App.Init(new Fonts(), loadArt: false);
-            App.PlayState(state, time);
+            try
+            {
+                App.Init(new Fonts(), loadArt: false);
+                App.PlayState(state, time);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("init failed: " + ex);
+                throw;
+            }
 
             // warm-up frames: let the hover/toggle springs settle, then capture the frame we keep
             for (int frame = 0; frame < 4; frame++)
@@ -220,7 +228,8 @@ namespace Fluensia
                 ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
                 ImGui.Begin("##preview", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove |
                     ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoSavedSettings);
-                App.Frame(0.2f, false);
+                try { App.Frame(0.2f, false); }
+                catch (Exception ex) { ReportAndSave(dir, state, ex); return; }
                 ImGui.End();
                 ImGui.PopStyleVar();
                 ImGui.Render();
@@ -238,6 +247,20 @@ namespace Fluensia
             Console.WriteLine("layout runs: " + (Ui.Layout?.Count ?? 0));
             if (Ui.Layout != null) System.IO.File.WriteAllLines(System.IO.Path.Combine(dir, "preview_" + state + ".layout.txt"), Ui.Layout);
             Console.Out.Flush();
+        }
+
+        /// <summary>Dumps whatever the preview managed to draw plus the exception, then gives up.</summary>
+        private static void ReportAndSave(string dir, string state, Exception ex)
+        {
+            Console.WriteLine("preview failed: " + ex);
+            try
+            {
+                Ui.Rec.Save(System.IO.Path.Combine(dir, "preview_" + state + ".png"));
+                System.IO.File.WriteAllLines(System.IO.Path.Combine(dir, "preview_" + state + ".txt"), Ui.Rec.SeenText);
+                if (Ui.Layout != null)
+                    System.IO.File.WriteAllLines(System.IO.Path.Combine(dir, "preview_" + state + ".layout.txt"), Ui.Layout);
+            }
+            catch (Exception inner) { Console.WriteLine("dump failed: " + inner.Message); }
         }
 
         /// <summary>Uniform "contain" fit of the 576x360 design into the window, snapped to whole pixels.</summary>
