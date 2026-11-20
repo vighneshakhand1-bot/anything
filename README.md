@@ -97,7 +97,7 @@ CI runs that on every push, so geometry drift fails the build instead of being s
 * Anti-aliasing is maxed out: antialiased lines/fills/line-textures, curve tessellation tolerance
   0.12, circle max error 0.12, 16× anisotropic clamp sampler, fonts rasterised at
   `design size × 1.38 × DPI × UI scale` with 2×2 oversampling and pixel-snapped glyph origins.
-* Art is bundled as `.flut` (palette + deflate index plane, ~2.1 MB for all 10 bitmaps) and
+* Art is bundled as `.png` (palette + deflate index plane, ~2.1 MB for all 10 bitmaps) and
   decoded in-process — no ImageSharp/StbImageSharp dependency.
 * All artwork is generated for this rebuild; the original game covers are copyrighted.
 * Compiles clean on Windows and Linux (`dotnet build`, 0 errors) and the headless preview runs for

@@ -148,7 +148,7 @@ all line boxes were positioned from the measured rows above, so the *layout* sta
     to whole pixels, integer-snapped layout offsets
   * every rounded/hairline primitive drawn in device pixels with per-corner radii, so 1 px
     outlines stay 1 px at any scale.
-* **Assets**: 10 bitmaps in the tiny `.flut` container (palette + deflate indices, ~2.1 MB total)
+* **Assets**: 10 bitmaps in the tiny `.png` container (palette + deflate indices, ~2.1 MB total)
   decoded by `Assets.Flut`, plus 4 static Inter weights. All art is generated for this rebuild
   (the original covers/skins are copyrighted); layout, colours and motion are measured.
 * **Theme**: colours in `Core/Theme.cs` (`Palette`), curves in `Core/Ease.cs`, all widgets in
