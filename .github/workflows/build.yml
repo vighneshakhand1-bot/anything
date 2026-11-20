@@ -37,14 +37,18 @@ jobs:
         continue-on-error: true
         run: |
           foreach ($s in @('games','workshop','account','settings','login')) {
-            Write-Host "--- $s"
-            & dist/Fluensia/Fluensia.exe --ui-preview dist/preview --state $s
-            Write-Host "exit=$LASTEXITCODE"
+            foreach ($attempt in 1..2) {
+              Write-Host "--- $s (attempt $attempt)"
+              & dist/Fluensia/Fluensia.exe --ui-preview dist/preview --state $s
+              Write-Host "exit=$LASTEXITCODE"
+              if (Test-Path "dist/preview/preview_$s.png") { break }
+            }
           }
           Get-ChildItem dist/preview -ErrorAction SilentlyContinue | Select-Object Name,Length
           if (-not (Select-String -Path dist/preview/preview_games.txt -Pattern 'Counter-Strike 2' -Quiet)) {
             throw "games screen did not draw its card titles"
           }
+          python3 tools/check_layout.py dist/preview/preview_games.layout.txt
       - name: Publish (portable single file)
         run: >
           dotnet publish src/Fluensia/Fluensia.csproj -c Release -r win-x64 --self-contained true
@@ -54,7 +58,11 @@ jobs:
         run: |
           Compress-Archive -Path dist/Fluensia/* -DestinationPath Fluensia-win-x64.zip -Force
           Compress-Archive -Path dist/Fluensia-portable/* -DestinationPath Fluensia-win-x64-portable.zip -Force
-          Compress-Archive -Path src/Fluensia/* -DestinationPath Fluensia-src.zip -Force
+          # source zip: exclude build intermediates (bin/obj) so it stays small
+          New-Item -ItemType Directory -Force -Path dist/src | Out-Null
+          robocopy src/Fluensia dist/src/Fluensia /E /XD bin obj /NFL /NDL /NJH /NJS /NP | Out-Null
+          Copy-Item README.md, .gitignore dist/src/ -Force
+          Compress-Archive -Path dist/src/* -DestinationPath Fluensia-src.zip -Force
       - uses: actions/upload-artifact@v4
         with:
           name: Fluensia-windows
