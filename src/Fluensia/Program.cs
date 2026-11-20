@@ -127,7 +127,6 @@ namespace Fluensia
             var sw = Stopwatch.StartNew();
             double last = 0;
             int frame = 0;
-            bool initialised = false;
 
             while (Window.Exists)
             {
@@ -168,7 +167,6 @@ namespace Fluensia
                     Controller.RequestFontRebuild();
                     _fontScale = target;
                 }
-                initialised = true;
 
                 ImGui.SetNextWindowPos(Vector2.Zero);
                 ImGui.SetNextWindowSize(new Vector2(w, h));

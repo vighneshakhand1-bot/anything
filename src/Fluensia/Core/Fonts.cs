@@ -20,7 +20,7 @@ namespace Fluensia.Core
         private readonly Dictionary<string, Vector2> _cache = new();
 
         /// <summary>False when the atlas could not supply this face (then we draw with the default font).</summary>
-        public bool Loaded => Ptr.NativePtr != IntPtr.Zero;
+        public bool Loaded => Ptr.NativePtr != null;   // ImFontPtr.NativePtr is ImFont*
 
         /// <summary>On-screen glyph size in framebuffer px (the size ImGui needs at draw time).</summary>
         public float DrawSize => Size * Program.Scale;
@@ -155,7 +155,7 @@ namespace Fluensia.Core
             var native = System.Runtime.InteropServices.Marshal.AllocHGlobal(data.Length);
             System.Runtime.InteropServices.Marshal.Copy(data, 0, native, data.Length);
             var ptr = ImGui.GetIO().Fonts.AddFontFromMemoryTTF(native, data.Length, linePx, cfgPtr, ranges);
-            if (ptr.NativePtr == IntPtr.Zero)
+            if (ptr.NativePtr == null)
             {
                 Console.Error.WriteLine("font failed to load: " + file);
                 return new Font { Size = linePx, Density = Density };
