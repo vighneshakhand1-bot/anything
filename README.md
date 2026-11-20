@@ -3,7 +3,9 @@
 A frame-accurate rebuild of the **Fluensia** launcher UI (game cards, skin workshop, account
 page, dark settings surface, key-gate login) rendered entirely with **Dear ImGui** in C#.
 
-* `src/Fluensia/` — the app (ImGui.NET 1.91.6 + Veldrid, borderless SDL2 window)
+* `src/Fluensia/` — the app (ImGui.NET 1.91.6.1 + Veldrid 4.9, borderless SDL2 window)
+* `src/Fluensia/Core/Fonts.cs` — the type ladder (line heights in design px, Inter `em` derived
+  from its vertical metrics so cap heights match the measured reference)
 * `src/Fluensia/analysis/brief.md` — layout / colour / motion analysis of the source clip,
   every value tagged **[OBS]** (measured) or **[EST]** (inferred)
 * `src/Fluensia/analysis/timeline.json` — machine-readable timings
@@ -25,8 +27,13 @@ or with the .NET 8 SDK directly:
 dotnet publish src/Fluensia/Fluensia.csproj -c Release -r win-x64 --self-contained false -o dist/Fluensia
 ```
 
-The GitHub Actions workflow (`.github/workflows/build.yml`) builds both variants, uploads the
-zips as artifacts on every push and attaches them to a release for tags `v*`.
+The GitHub Actions workflow (`.github/workflows/build.yml`) builds both variants on every push,
+runs the GPU-less layout preview for all five screens, checks the measured geometry, uploads the
+zips as artifacts and attaches them to a release for tags `v*`.
+
+Status of the last run is visible on the repo's Actions tab; the compiled zips are under
+**Actions → the newest `build` run → Artifacts** (`Fluensia-windows.zip`,
+`Fluensia-layout-preview.zip`).
 
 ## Requirements
 
@@ -79,5 +86,7 @@ CI runs that on every push, so geometry drift fails the build instead of being s
 * Art is bundled as `.flut` (palette + deflate index plane, ~2.1 MB for all 10 bitmaps) and
   decoded in-process — no ImageSharp/StbImageSharp dependency.
 * All artwork is generated for this rebuild; the original game covers are copyrighted.
+* Compiles clean on Windows and Linux (`dotnet build`, 0 errors) and the headless preview runs for
+  every screen in CI; the geometry assertions in `tools/check_layout.py` pass.
 * Measured geometry lives in `analysis/brief.md` (**Measurement pass 2** supersedes the first table)
   and in `analysis/timeline.json` → `layout_revised`.
