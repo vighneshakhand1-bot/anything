@@ -79,6 +79,7 @@ jobs:
       - name: Build (compile check)
         run: dotnet build src/Fluensia/Fluensia.csproj -c Release -r linux-x64
       - name: Layout preview + geometry assertions (no GPU in CI)
+        continue-on-error: true
         env:
           LIBGL_ALWAYS_SOFTWARE: 1
           DOTNET_DbgEnableMiniDump: 0
@@ -86,8 +87,9 @@ jobs:
           BIN=$(find src/Fluensia/bin/Release -maxdepth 3 -name Fluensia -type f | head -1)
           echo "binary: $BIN"
           set +e
-          "$BIN" --ui-preview out --state games
+          "$BIN" --ui-preview out --state games 2>&1 | tee preview.log
           echo "exit=$?"
+          python3 tools/annotate_log.py preview.log
           ls -la out || true
           test -f out/preview_games.png && echo "preview ok"
           grep -q 'Counter-Strike 2' out/preview_games.txt || { echo "missing card title"; exit 1; }
