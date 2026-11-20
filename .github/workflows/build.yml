@@ -32,7 +32,7 @@ jobs:
           fi
       - name: Publish (framework-dependent)
         run: dotnet publish src/Fluensia/Fluensia.csproj -c Release -r win-x64 --self-contained false -o dist/Fluensia
-      - name: Smoke test (live device: fonts + atlas rebuild)
+      - name: Smoke test - live device, fonts and atlas rebuild
         shell: pwsh
         run: |
           # starts the real window and renderer for 4 frames, then exits 0 — this is the path that
