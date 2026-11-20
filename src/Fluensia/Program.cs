@@ -155,14 +155,14 @@ namespace Fluensia
                     float target = UiScale;
                     Controller.BetweenFrames = () =>
                     {
-                        var rebuilt = new Fonts(AssetDir, target);
+                        var rebuilt = new Fonts(AssetDir, target, rebuild: true);
                         if (!rebuilt.AnyLoaded) return;
                         App.F?.InvalidateMeasurements();
                         rebuilt.Build();
                         Controller.RecreateFontDeviceTexture(Gd);
                         App.F = rebuilt;
                         _fontScale = target;
-                        Console.WriteLine($"fonts rebuilt at density {target:0.##}");
+                        Console.WriteLine($"fonts rebuilt at density {target:0.##}: {ImGui.GetIO().Fonts.Fonts.Size} faces");
                     };
                     Controller.RequestFontRebuild();
                     _fontScale = target;

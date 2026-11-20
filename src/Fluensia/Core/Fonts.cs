@@ -94,12 +94,21 @@ namespace Fluensia.Core
             Price = new Font { Size = 11.00f };
         }
 
-        public Fonts(string assetsDir, float dpiScale)
+        public Fonts(string assetsDir, float dpiScale, bool rebuild = false)
         {
             // Fonts are embedded in the assembly (see Fluensia.csproj), so the exe works from any
             // directory, a zip, or a single-file publish without the Assets folder next to it.
             _dir = Path.Combine(assetsDir, "fonts");
             Density = Math.Clamp(dpiScale, 1f, 3f);
+            // a rebuild replaces the previous ladder: drop it *before* adding the new faces
+            if (rebuild)
+            {
+                var atlas = ImGui.GetIO().Fonts;
+                atlas.ClearTexData();
+                atlas.ClearFonts();
+                atlas.ClearInputData();
+                _all.Clear();
+            }
             Ladder(ImGui.GetIO().Fonts.GetGlyphRangesCyrillic());
             ImGui.GetIO().Fonts.Flags |= ImFontAtlasFlags.NoBakedLines;
         }
@@ -191,7 +200,12 @@ namespace Fluensia.Core
             foreach (var f in _all) f.ClearCache();
         }
 
-        /// <summary>Builds the atlas; must run inside a live ImGui context (first frame).</summary>
+        /// <summary>
+        /// Builds the atlas. Must run between frames, with the atlas unlocked.
+        /// A density change rebuilds the whole ladder (see the constructor): ImGui keeps every face
+        /// in the system atlas, so the rebuild clears the previous one first — otherwise each DPI
+        /// switch adds ten more faces to a 4096x8192 atlas and never frees them.
+        /// </summary>
         public void Build()
         {
             ImGui.GetIO().Fonts.Build();
