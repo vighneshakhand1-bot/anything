@@ -107,23 +107,28 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: Fluensia-windows
+          path: out
       - name: Tag name
         id: tag
-        run: echo "name=${GITHUB_REF_NAME:-build-${GITHUB_RUN_NUMBER}}" >> $GITHUB_OUTPUT
-      - uses: softprops/action-gh-release@v2
+        run: echo "name=${GITHUB_REF_NAME:-build-${GITHUB_RUN_NUMBER}}" >> "$GITHUB_OUTPUT"
+      - name: Release with the built exe
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.name }}
           name: Fluensia ${{ steps.tag.outputs.name }}
+          body: |
+            Ready-to-run Windows build of the Fluensia launcher rebuild (C# + ImGui.NET).
+
+            * `Fluensia-win-x64-portable.zip` - single self-contained exe, no .NET install needed
+            * `Fluensia-win-x64.zip` - smaller, needs the .NET 8 Desktop Runtime
+            * `Fluensia-src.zip` - full source, build with `src\Fluensia\build.bat`
+
+            Controls: `1`-`4` switch screens, `M` flips the theme, `Esc` goes back, mouse for everything else.
           files: |
-            Fluensia-win-x64.zip
-            Fluensia-win-x64-portable.zip
-            Fluensia-src.zip
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Fluensia-layout-preview
-          path: dist/preview/*
-          generate_release_notes: true
+            out/Fluensia-win-x64.zip
+            out/Fluensia-win-x64-portable.zip
+            out/Fluensia-src.zip
+          fail_on_unmatched_files: true
