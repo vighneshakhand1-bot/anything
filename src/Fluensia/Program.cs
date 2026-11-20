@@ -198,7 +198,7 @@ namespace Fluensia
             io.Fonts.Build();
             ImGui.StyleColorsDark();
 
-            Ui.Rec = new UiRecorder((int)(DesignW * s), (int)(DesignH * s), s, new Glyphs(8));
+            Ui.Rec = new UiRecorder((int)(DesignW * s), (int)(DesignH * s), s, new Glyphs());
             Ui.Layout = new System.Collections.Generic.List<string>();
             App = new App();
             App.Init(new Fonts(), loadArt: false);

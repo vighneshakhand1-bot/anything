@@ -117,13 +117,13 @@ namespace Fluensia.Core
         /// `size * RasterizerDensity`; AddText then scales by DrawSize/bakedSize, so DPI and window
         /// scale never change the layout.
         /// </summary>
-        private Font Add(string file, float linePx, IntPtr ranges)
+        private unsafe Font Add(string file, float linePx, IntPtr ranges)
         {
             var cfg = ImGuiNative.ImFontConfig_ImFontConfig();
             var cfgPtr = new ImFontConfigPtr(cfg);
             cfgPtr.OversampleH = 4;          // maxed-out AA: no glyph is ever upscaled
             cfgPtr.OversampleV = 4;
-            cfgPtr.PixelSnapH = 0;
+            cfgPtr.PixelSnapH = false;
             cfgPtr.RasterizerDensity = Density;
             cfgPtr.GlyphMinAdvanceX = 0;
             var path = Path.Combine(_dir, file);
