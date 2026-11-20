@@ -11,6 +11,20 @@ page, dark settings surface, key-gate login) rendered entirely with **Dear ImGui
 * `src/Fluensia/analysis/timeline.json` — machine-readable timings
 * `videoplayback.mp4` — the reference recording (576×360 @ 30 fps)
 
+
+### Running the exe
+
+The published build ships the Inter faces as **embedded resources**, so `Fluensia-win-x64.zip`
+(or `Fluensia-win-x64-portable.zip`, one self-contained file) runs from any folder, unzipped
+anywhere. It also writes `fluensia.log` next to the exe with the startup lines, and attaches a
+console when launched from a shell, so a failure is readable instead of a bare MSVC assert box.
+
+`Fluensia.exe --smoke` starts the real window for four frames and exits — CI runs it on Windows
+and Linux because it covers the two ImGui font-atlas asserts that used to abort at startup:
+
+* *"Could not load font file!"* — fonts were loaded after the atlas was locked (`NewFrame()`),
+* *"Cannot modify a locked ImFontAtlas"* — the atlas was rebuilt between `NewFrame()`/`EndFrame()`.
+
 ## Build
 
 Windows (manual, as requested):

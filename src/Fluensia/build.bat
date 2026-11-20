@@ -3,7 +3,7 @@ REM ============================================================================
 REM  Fluensia - manual build script (Windows)
 REM  Requirements: .NET 8 SDK (https://dotnet.microsoft.com/download)
 REM  Usage:   build.bat                 -> framework-dependent, Release + layout preview
-REM           (nothing is shipped prebuilt; you build locally)
+REM           build.bat --smoke         -> build, then start the real window for 4 frames (startup check)
 REM           build.bat --portable      -> single self-contained .exe (bigger, no SDK needed)
 REM           build.bat --debug         -> Debug build, no publish
 REM ============================================================================
@@ -18,6 +18,7 @@ if errorlevel 1 (
 )
 
 if /i "%1"=="--portable" goto portable
+if /i "%1"=="--smoke" goto smoketest
 if /i "%1"=="--debug"    goto debug
 
 echo [1/2] Restoring packages...
@@ -34,6 +35,20 @@ if exist "..\..\dist\preview\preview_games.png" echo   preview: dist\preview\pre
 echo.
 echo Done.  Run:  dist\Fluensia\Fluensia.exe
 goto end
+
+:smoketest
+dotnet publish "%~dp0Fluensia.csproj" -c Release -r win-x64 --self-contained false -o "%~dp0dist\Fluensia"
+if errorlevel 1 goto fail
+echo [i] smoke test: starting the window for 4 frames...
+"%~dp0dist\Fluensia\Fluensia.exe" --smoke
+if errorlevel 1 (
+  echo [x] smoke test failed - see the console output above and fluensia.log
+  pause
+  exit /b 1
+)
+echo [ok] smoke test passed
+pause
+exit /b 0
 
 :portable
 echo [1/2] Restoring packages...

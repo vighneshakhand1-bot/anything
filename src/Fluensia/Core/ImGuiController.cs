@@ -341,10 +341,15 @@ namespace Fluensia.Core
                 new ResourceSetDescription(_textureLayout, _fontTextureView));
             _fontSampler?.Dispose();
             _fontSampler = CreateFontSampler(gd);
-            _mainResourceSet?.Dispose();
-            _mainResourceSet = gd.ResourceFactory.CreateResourceSet(new ResourceSetDescription(_layout,
-                _projMatrixBuffer,
-                _fontSampler ?? _linearSampler));
+            // The first call happens from CreateDeviceResources, before the projection buffer and
+            // the main resource set exist; only rebind them once they do.
+            if (_projMatrixBuffer != null && _layout != null)
+            {
+                _mainResourceSet?.Dispose();
+                _mainResourceSet = gd.ResourceFactory.CreateResourceSet(new ResourceSetDescription(_layout,
+                    _projMatrixBuffer,
+                    _fontSampler ?? _linearSampler));
+            }
 
             io.Fonts.ClearTexData();
         }
