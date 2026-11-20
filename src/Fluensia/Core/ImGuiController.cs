@@ -335,12 +335,16 @@ namespace Fluensia.Core
                 0);
             _fontTextureView?.Dispose();
             _fontTextureView = gd.ResourceFactory.CreateTextureView(_fontTexture);
-            // the resource set and the sampler both point at the old view: refresh them
-            _fontTextureResourceSet?.Dispose();
-            _fontTextureResourceSet = gd.ResourceFactory.CreateResourceSet(
-                new ResourceSetDescription(_textureLayout, _fontTextureView));
+            // The resource set and the sampler both point at the old view, so refresh them. Both are
+            // null on the very first call (it runs from CreateDeviceResources, before the layouts exist).
             _fontSampler?.Dispose();
             _fontSampler = CreateFontSampler(gd);
+            if (_textureLayout != null)
+            {
+                _fontTextureResourceSet?.Dispose();
+                _fontTextureResourceSet = gd.ResourceFactory.CreateResourceSet(
+                    new ResourceSetDescription(_textureLayout, _fontTextureView));
+            }
             // The first call happens from CreateDeviceResources, before the projection buffer and
             // the main resource set exist; only rebind them once they do.
             if (_projMatrixBuffer != null && _layout != null)

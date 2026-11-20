@@ -37,11 +37,13 @@ jobs:
         run: |
           # starts the real window and renderer for 4 frames, then exits 0 — this is the path that
           # used to abort in the ImGui font asserts, so it is the one test that must not be skipped.
-          & dist/Fluensia/Fluensia.exe --smoke 2>&1 | Tee-Object -FilePath smoke.log
+          & dist/Fluensia/Fluensia.exe --smoke *>&1 | Tee-Object -FilePath smoke.log
           $code = $LASTEXITCODE
           Write-Host "smoke exit=$code"
+          # the log goes to the job annotations: that is the only channel we can read back here
           Get-Content smoke.log | ForEach-Object {
-            if ($_ -match 'smoke ok|Unhandled|Assertion|assert|font') { Write-Host "::warning::$_" }
+            $line = "$_"
+            if ($line.Trim()) { Write-Host ("::warning::" + $line.Replace("%","%25")) }
           }
           if ($code -ne 0) { Write-Host "::error::smoke test failed with exit code $code" }
       - name: Layout preview (GPU-less) for every screen
