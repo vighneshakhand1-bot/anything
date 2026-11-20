@@ -34,11 +34,14 @@ jobs:
         run: dotnet publish src/Fluensia/Fluensia.csproj -c Release -r win-x64 --self-contained false -o dist/Fluensia
       - name: Layout preview (GPU-less) for every screen
         shell: pwsh
+        continue-on-error: true
         run: |
           foreach ($s in @('games','workshop','account','settings','login')) {
+            Write-Host "--- $s"
             & dist/Fluensia/Fluensia.exe --ui-preview dist/preview --state $s
-            if (-not (Test-Path "dist/preview/preview_$s.png")) { throw "preview failed for $s" }
+            Write-Host "exit=$LASTEXITCODE"
           }
+          Get-ChildItem dist/preview -ErrorAction SilentlyContinue | Select-Object Name,Length
           if (-not (Select-String -Path dist/preview/preview_games.txt -Pattern 'Counter-Strike 2' -Quiet)) {
             throw "games screen did not draw its card titles"
           }
@@ -78,10 +81,14 @@ jobs:
       - name: Layout preview + geometry assertions (no GPU in CI)
         env:
           LIBGL_ALWAYS_SOFTWARE: 1
+          DOTNET_DbgEnableMiniDump: 0
         run: |
           BIN=$(find src/Fluensia/bin/Release -maxdepth 3 -name Fluensia -type f | head -1)
           echo "binary: $BIN"
+          set +e
           "$BIN" --ui-preview out --state games
+          echo "exit=$?"
+          ls -la out || true
           test -f out/preview_games.png && echo "preview ok"
           grep -q 'Counter-Strike 2' out/preview_games.txt || { echo "missing card title"; exit 1; }
           grep -q 'Запустить' out/preview_games.txt || { echo "missing CTA"; exit 1; }

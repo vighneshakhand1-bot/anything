@@ -191,6 +191,10 @@ namespace Fluensia
             Scale = s; UiScale = s; Offset = Vector2.Zero;
             ImGui.CreateContext();
             var io = ImGui.GetIO();
+            // ImGui asserts unless the platform backend fills these in
+            io.BackendPlatformName = "fluensia-preview";
+            io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
+            io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
             io.DisplaySize = new Vector2(DesignW, DesignH);
             io.DisplayFramebufferScale = Vector2.One;
             io.DeltaTime = 1f / 60f;
@@ -207,6 +211,7 @@ namespace Fluensia
             // warm-up frames: let the hover/toggle springs settle, then capture the frame we keep
             for (int frame = 0; frame < 4; frame++)
             {
+                int before = Ui.Rec.SeenText.Count;
                 Ui.Layout?.Clear();
                 Ui.Dt = 0.2f;
                 ImGui.NewFrame();
@@ -219,16 +224,20 @@ namespace Fluensia
                 ImGui.End();
                 ImGui.PopStyleVar();
                 ImGui.Render();
+                int drawn = Ui.Rec.SeenText.Count - before;
+                Console.WriteLine($"  frame {frame}: {drawn} text runs, {Ui.Layout?.Count ?? 0} widgets");
             }
             var outPath = System.IO.Path.Combine(dir, "preview_" + state + ".png");
             Ui.Rec.Save(outPath);
             Console.WriteLine("preview written: " + outPath);
+            Console.Out.Flush();
             var report = System.IO.Path.Combine(dir, "preview_" + state + ".txt");
             System.IO.File.WriteAllLines(report, Ui.Rec.SeenText);
             Console.WriteLine("text dump: " + report + " (" + Ui.Rec.SeenText.Count + " runs)");
             // the layout log carries only the last frame (earlier warm-up frames are cleared above)
             Console.WriteLine("layout runs: " + (Ui.Layout?.Count ?? 0));
             if (Ui.Layout != null) System.IO.File.WriteAllLines(System.IO.Path.Combine(dir, "preview_" + state + ".layout.txt"), Ui.Layout);
+            Console.Out.Flush();
         }
 
         /// <summary>Uniform "contain" fit of the 576x360 design into the window, snapped to whole pixels.</summary>
